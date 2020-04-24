@@ -1,0 +1,105 @@
+# Configuration Script
+#
+# This file can be used to configure the editor windows.
+#
+# Uncomment this if you want a set of useful default shortcuts!
+# SCRIPT default-assign.scr;
+#
+
+
+BRD:
+# Settings for board editor window
+
+LAYER 101 tAssmNP;
+LAYER 102 bAssmNP;
+LAYER 1; # Default to being on layer 1
+
+# Get rid of the extra internal layers
+Set used_Layers 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 101 102; 
+
+GRID = Metric mm 0.25 lines on alt mm 0.125;
+GRID = Inch_MM mm 1.27 lines on alt mm 0.127;
+GRID Last;
+
+MENU '[Volumes/Sidecar/EAGLE/ulps/samacsys.svg] SamacSys : Run samacsys.ulp;'\
+;
+
+DISPLAY = 'Preset_Top' None 1 17 18 19 20 21 23 25 39 41 43 49 51;
+DISPLAY = 'Preset_Bottom' None 16 17 18 19 20 22 24 26 40 42 43 49 52;
+DISPLAY = 'Preset_Standard' None 1 16 17 18 19 20 21 22 23 24 25 26 39 40 41 42 43 48 49 51 52 101;
+DISPLAY = 'Preset_Inner' None 2 3 4 5 6 7 8 9 10 11 12 13 14 15 17 18 19 20 21 22 23 24 25 26 39 40 41 42 43 48 49 51 52;
+#DISPLAY = 'Assembly_Top' None;
+#DISPLAY = 'Assembly_Bottom' None;
+
+DISPLAY Preset_Standard # Set layer display to standard layers
+
+Set WIRE_BEND 1; # Route with 45 degree angles
+Change Shape Round; # Make vias round
+
+# Changes background color of board to black
+SET PALETTE WHITE;
+
+# Set default selection filter to not include airwires
+SET SELECTTYPES ALL -AIRWIRE; 
+
+# Always use vector font in boards as that is what is used by the cam processor
+SET VECTOR_FONT ON;
+
+# Set default layer colours
+SET color_layer 48 5;  # Set Document to mellow yellow
+SET color_layer 49 63;  #Set Reference to purple
+SET color_layer 51 61;  # Set tDocu to yellow
+SET color_layer 52 3; # Set bDocu to lblue 
+SET color_layer 101 4; # Set tNP view layer to red
+SET color_layer 102 1; # Set bNP view layer to blue
+
+# Set default layer fill styles
+SET fill_layer 51 5; # Set tDocu to thick diag fill
+SET fill_layer 52 5; # Set bDocu to thick diag fill
+SET fill_layer 101 4; # Set tNP view layer to thick diag fill
+SET fill_layer 102 4; # Set bNP view layer to thick diag fill
+
+# Assign shortcuts
+Assign F8 'Ratsnest';
+Assign AF8 'Ripup @;';
+
+SCH:
+# Settings for schematic editor window
+
+LAYER 101 AssmNP;
+LAYER 91; # Default to being on layer 91
+
+# Get rid of the extra random layers
+SET Used_Layers 88 89 90 91 92 93 94 95 96 97 98 101
+
+Grid Default;
+Change Width 0.006in;
+MENU '[Volumes/Sidecar/EAGLE/ulps/samacsys.svg] SamacSys : Run samacsys.ulp;'\
+;
+
+DISPLAY = 'Preset_Standard' None 88 89 90 91 92 93 94 95 96 97 98 101;
+
+# Set default layer colours
+SET color_layer 101 59; # Set NP view layer to red
+
+# Set default layer fill styles
+SET fill_layer 101 1; # Set tNP view layer to solid
+
+LBR:
+# Settings for library editor window
+;
+
+DEV:
+# Settings for editing devices within a library
+Grid Default;
+
+SYM:
+# Settings for editing symbols within a library
+Grid Default On;
+Change Width 0.010in;
+
+PAC:
+# Settings for editing footprints within a library
+Grid Default On;
+Change Width 0.005in;
+Change Size 0.050in;
