@@ -1,0 +1,310 @@
+// fab_info.ulp
+// Generates useful data for geting boards made and assembled
+
+#usage "<b>Generates useful fabrication data</b>\n"
+       "<p>"
+       "Usage: RUN fab_info from a board\n"
+       "<p>"
+       "Tip: Assign a function key with"
+       "<p>"
+       "<tt>ASSIGN Shift+Ctrl+P 'run fab_info.ulp;';</tt>"
+       "<p>"
+       "<author>Author: Harry Bridge</author>"
+
+// Init max bounds vars
+int xmax = INT_MIN;
+int xmin = INT_MAX;
+int ymax = xmax;
+int ymin = xmin;
+
+// width and height of the board
+int boardWidth = 0;
+int boardHeight = 0;
+
+// origin of the workspace reltive to the bottom left extens
+int originX = 0;
+int originY = 0;
+
+// total number of placements (smd + pth) on each side combined
+int numTotalPlacements = 0;
+// total pth placements
+int numPthPlacements = 0;
+// number of sides of smd placements
+int numSmdSides = 0;
+
+// num smd placements, without bgas
+int numSmdPlacements = 0;
+// number of bga/qfn components
+int numBgaPlacements = 0;
+// counter for top and bottom smd components
+int numSmdTopPlacements = 0;
+int numSmdBottomPlacements = 0;
+
+// giant string of all the component values found to generate num unique components
+string componentsFound = "";
+int numUniqueComponents = 0;
+
+// strings to look for in package name that define them as bga or qfn
+string bgaLookFor[] = {"QFN", "BGA", "SON", "DFN"};
+// number of strings in the above array as there is no sizeof() here
+int numBgaMatches = 4;
+
+
+// Ignore any parts whos value contain these strings
+string IgnoreValueStrings[] = {"(NP)", "FID"};
+int numIgnoreMatches = 2;
+
+string s;
+string message = ""; 
+string cmd = "";
+
+void resetMaxBounds() {
+	xmax = INT_MIN;
+	xmin = INT_MAX;
+	ymax = xmax;
+	ymin = xmin;
+}
+
+// Entry point
+if (board) {
+	board(B) {
+		// first find the max dims of the board
+		resetMaxBounds();
+		int dimsOnBoard = 0;
+		B.wires(W) {
+			if (W.layer == 20) {
+				dimsOnBoard = 1;
+				// if the wire is on the dimension layer
+				// Wire start point
+				if (W.x1 > xmax) xmax = W.x1;
+				if (W.x1 < xmin) xmin = W.x1;
+				if (W.y1 > ymax) ymax = W.y1;
+				if (W.y1 < ymin) ymin = W.y1;
+
+				// Wire end point
+				if (W.x2 > xmax) xmax = W.x2;
+				if (W.x2 < xmin) xmin = W.x2;
+				if (W.y2 > ymax) ymax = W.y2;
+				if (W.y2 < ymin) ymin = W.y2;
+			}
+		}
+
+		if (dimsOnBoard) {
+			// board size from wires in editor
+			boardWidth = xmax - xmin;
+			boardHeight = ymax - ymin;
+
+			// board origin
+			originX = xmin * -1;
+			originY = ymin * -1;
+		}
+
+		resetMaxBounds();
+
+		// keep track of what layer the placement is on
+		int placementsLayer1 = 0;
+		int placementsLayer16 = 0;
+		// Next find the number of placements in the board
+		B.elements(E) if (E.populate) {
+
+			int ignore = 0;
+			for (int i = 0; i < numIgnoreMatches; i++) {
+				ignore = strstr(E.value, IgnoreValueStrings[i]);
+
+				if (ignore != -1) {
+						break;
+					}
+			}
+
+			if (ignore == -1) {
+				// If part is to be placed
+
+				int unique = strstr(componentsFound, E.value);
+				if (unique == -1) {
+					// part hasn't been found yet
+					componentsFound += E.value;
+					numUniqueComponents ++;
+				}
+
+				for (int i = 0; i < numBgaMatches; i++) {
+					int isQfn = strstr(E.package.name, bgaLookFor[i]);
+					// printf("%s %u\n", E.package.name, isQfn);
+					if (isQfn != -1) {
+						numBgaPlacements ++;
+					}
+				}
+				
+				int placementIsSmd = 0;
+				int isSmdTop = 0;
+				int isSmdBot = 0;
+				int placementIsPth = 0;
+
+				E.package.wires(W) {
+					// Find if there are any dimension wires in the package
+					if (W.layer == 20) {
+						// Wire start
+						if ((W.x1) > xmax) xmax = W.x1;
+						if ((W.x1) < xmin) xmin = W.x1;
+						if ((W.y1) > ymax) ymax = W.y1;
+						if ((W.y1) < ymin) ymin = W.y1;
+
+						// Wire end
+						if (( W.x2) > xmax) xmax = W.x2;
+						if (( W.x2) < xmin) xmin = W.x2;
+						if ((W.y2) > ymax) ymax = W.y2;
+						if ((W.y2) < ymin) ymin = W.y2;
+					}
+					
+				}
+
+				E.package.contacts(C) {
+					if (C.smd) {
+						placementIsSmd = 1;
+
+						if (C.smd.layer == 1) {
+							placementsLayer1 = 1;
+							isSmdTop = 1;
+						} else if (C.smd.layer == 16) {
+							placementsLayer16 = 1;
+							isSmdBot = 1;
+						}
+					}
+					if (C.pad) {
+						placementIsPth = 1;
+					}
+				}
+
+				if (placementIsSmd) {
+					if (isSmdTop) {
+						numSmdTopPlacements ++;
+					}
+
+					if (isSmdBot) {
+						numSmdBottomPlacements ++;
+					}
+				}
+
+				if (placementIsPth) {
+					numPthPlacements ++;
+				}
+
+			}
+
+		}
+
+		// board size from wires on layer 20 in library components
+		// assume the biggest dims are from the library so set the origin from those as well
+		if ((xmax - xmin) > boardWidth) {
+			boardWidth = xmax - xmin;
+			originX = xmin * -1;
+		}
+
+			
+		if ((ymax - ymin) > boardHeight) {
+			boardHeight = ymax - ymin;
+			originY = ymin * -1;
+		}
+
+		// board size from wires in editor
+		// boardWidth = xmax - xmin;
+		// boardHeight = ymax - ymin;
+
+		// // board origin
+		// originX = xmin;
+		// originY = ymin;
+		
+
+		// Add up the number of sides found
+		numSmdSides = placementsLayer1 + placementsLayer16;
+		numSmdPlacements = numSmdTopPlacements + numSmdBottomPlacements - numBgaPlacements;
+		numTotalPlacements = numSmdTopPlacements + numSmdBottomPlacements + numPthPlacements;
+
+	}	
+
+	dlgDialog("Fabrication info") {
+		dlgLabel("Dimensions:");
+
+ 		dlgStretch(0);
+ 		dlgGridLayout {
+ 			dlgCell(0, 0) dlgLabel("Board Width:");
+ 			sprintf(s, "%.2fmm", u2mm(boardWidth));
+       		dlgCell(0, 1)  dlgLabel(s);
+       		sprintf(s, "%.3fin", u2inch(boardWidth));
+       		dlgCell(0, 2)  dlgLabel(s);
+
+       		dlgCell(1, 0) dlgLabel("Board Height:");
+       		sprintf(s, "%.2fmm", u2mm(boardHeight));
+       		dlgCell(1, 1)  dlgLabel(s);
+       		sprintf(s, "%.3fin", u2inch(boardHeight));
+       		dlgCell(1, 2)  dlgLabel(s);
+       	}
+
+     	dlgSpacing(20);
+     	dlgLabel("Placements:");
+
+ 		dlgStretch(0);
+ 		dlgGridLayout {
+	   		dlgCell(0, 0) dlgLabel("Sides of SMD placements:");
+ 			sprintf(s, "%u", numSmdSides);
+       		dlgCell(0, 1)  dlgLabel(s);
+
+	   		dlgCell(1, 0) dlgLabel("Total number of placements:");
+ 			sprintf(s, "%u", numTotalPlacements);
+       		dlgCell(1, 1)  dlgLabel(s);
+
+       		dlgCell(2, 0) dlgLabel("Total number of PTH placements:");
+ 			sprintf(s, "%u", numPthPlacements);
+       		dlgCell(2, 1)  dlgLabel(s);
+
+       		dlgCell(3, 0) dlgLabel("Total number of BGA/QFN placements:");
+ 			sprintf(s, "%u", numBgaPlacements);
+       		dlgCell(3, 1)  dlgLabel(s);
+
+       		dlgCell(4, 0) dlgLabel("Calulated number of SMD placements:");
+ 			sprintf(s, "%u", numSmdPlacements);
+       		dlgCell(4, 1)  dlgLabel(s);
+
+       		dlgCell(5, 0) dlgLabel("Number of unique components:");
+ 			sprintf(s, "%u", numUniqueComponents);
+       		dlgCell(5, 1)  dlgLabel(s);
+       	}
+
+       	dlgSpacing(20);
+       	dlgLabel("Extra info:");
+
+ 		dlgStretch(0);
+ 		dlgGridLayout {
+	   		dlgCell(0, 0) dlgLabel("Number of top SMD placements:");
+ 			sprintf(s, "%u", numSmdTopPlacements);
+       		dlgCell(0, 1)  dlgLabel(s);
+
+	   		dlgCell(1, 0) dlgLabel("Number of bottom SMD placements:");
+ 			sprintf(s, "%u", numSmdBottomPlacements);
+       		dlgCell(1, 1)  dlgLabel(s);
+
+       		dlgCell(2, 0) dlgLabel("X origin relative to left of board:");
+ 			sprintf(s, "%.2fmm", u2mm(originX));
+       		dlgCell(2, 1)  dlgLabel(s);
+       		sprintf(s, "%.3fin", u2inch(originX));
+       		dlgCell(2, 2)  dlgLabel(s);
+
+
+       		dlgCell(3, 0) dlgLabel("Y origin relative to bottom of board:");
+ 			sprintf(s, "%.2fmm", u2mm(originY));
+       		dlgCell(3, 1)  dlgLabel(s);
+       		sprintf(s, "%.3fin", u2inch(originY));
+       		dlgCell(3, 2)  dlgLabel(s);
+       	}
+
+     	dlgSpacing(20);
+     	dlgPushButton("+Done") dlgAccept();
+
+	};
+
+} else {
+	if (dlgMessageBox("!Start this ULP in a Board\nDo you want to switch to the board editor", "&Yes", "&No") == 0) {
+		cmd += "EDIT .brd;\n";
+	}
+
+	exit(cmd);
+}

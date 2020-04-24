@@ -1,0 +1,285 @@
+// highlight_np.ulp
+// puts a rect around each component that is set to be np on a board
+
+#usage "<b>Highlights all NP components on schematics and boards</b>\n"
+       "<p>"
+       "Usage: RUN highlight_np from either a schematic or a board\n"
+       "<p>"
+       "Note: This ULP will have to be run from both board and schematic individually\n"
+       "to update both."
+       "<p>"
+       "Tip: Assign a function key with"
+       "<p>"
+       "<tt>ASSIGN Shift+Ctrl+Alt+P 'run highlight_np.ulp;';</tt>"
+       "<p>"
+       "<author>Author: Harry Bridge</author>"
+
+int debug = 0;
+string cmd = "";
+string s;
+// How much to add to each side of np rect on board file in mm
+real rectBorder = 0.05;
+// Width for the lines drawn on scematic sheets, in inches
+real schematicLineWidth = 0.03;
+// How much to add to the x,y of the start point in the scematic lines
+real schematicLineOvershoot = 0.03;
+
+int xmax = INT_MIN;
+int xmin = INT_MAX;
+int ymax = xmax;
+int ymin = xmin;
+
+void resetMaxBounds() {
+	xmax = INT_MIN;
+	xmin = INT_MAX;
+	ymax = xmax;
+	ymin = xmin;
+}
+
+void deleteLayerContents(int Layer) {
+	sprintf(s, "DISPLAY None %u;\n", Layer);
+	cmd += s;
+	cmd += "GROUP all;\n";
+	cmd += "DELETE (>0 0);\n";
+	cmd += "DISPLAY last;\n";
+}
+
+void makeBoardNp(int Layer) {
+	
+	board(B) {
+		B.elements(E) {
+			// ok to build rect command string?
+			int rectOK = 0;
+            resetMaxBounds();
+
+            // printf("PART: %s\n", E.name);
+            // printf("%.4f\n", u2mm(E.package.area.x1));
+            int place = strstr(E.value, "(NP)");
+			if (place != -1 || !E.populate) {
+	            E.package.contacts(C) {
+	            	// printf("%ul", C.smd.layer);
+	            	// printf("Is SMD:, Layer: %i", C.smd.layer);
+	            	if (C.smd && C.smd.layer == Layer) {
+	            		rectOK = 1;
+
+	            		if (debug) {
+	            			printf("SMD %s: dx: %f, %u, angle: %f\n", E.name, u2mm(C.smd.dx), C.smd.dx, C.smd.angle);
+	            			printf("SMD %s: dy: %f, %u\n", E.name, u2mm(C.smd.dy), C.smd.dy);
+            			}
+	 					
+		                if (C.smd.x + (C.smd.dx / 2) > xmax) xmax = C.smd.x + (C.smd.dx / 2);
+		                if (C.smd.y + (C.smd.dy / 2) > ymax) ymax = C.smd.y + (C.smd.dy / 2);
+		                if (C.smd.x - (C.smd.dx / 2) < xmin) xmin = C.smd.x - (C.smd.dx / 2);
+		                if (C.smd.y - (C.smd.dy / 2) < ymin) ymin = C.smd.y - (C.smd.dy / 2);
+
+		                // if a pad has the same x, y but is rotated then dx, dy retains the same dimentions
+		                // so try the opposite combinations as well, ie xmin with dy
+		                if (C.smd.x + (C.smd.dy / 2) > xmax) xmax = C.smd.x + (C.smd.dy / 2);
+		                if (C.smd.y + (C.smd.dx / 2) > ymax) ymax = C.smd.y + (C.smd.dx / 2);
+		                if (C.smd.x - (C.smd.dy / 2) < xmin) xmin = C.smd.x - (C.smd.dy / 2);
+		                if (C.smd.y - (C.smd.dx / 2) < ymin) ymin = C.smd.y - (C.smd.dx / 2);
+
+	            	} 
+	            	if (C.pad) {
+	            		rectOK = 1;
+	            		if (debug) {
+	            			printf("PAD: x %.4f y %.4f\n", u2mm(C.pad.x), u2mm(C.pad.y));
+            			}
+	            		// Find pads max bounds
+	            		if (C.pad.x + (C.pad.diameter[Layer] / 2) > xmax) xmax = C.pad.x + (C.pad.diameter[Layer] / 2);
+	            		if (C.pad.x - (C.pad.diameter[Layer] / 2) < xmin) xmin = C.pad.x - (C.pad.diameter[Layer] / 2);
+	            		if (C.pad.y + (C.pad.diameter[Layer] / 2) > ymax) ymax = C.pad.y + (C.pad.diameter[Layer] / 2);
+	            		if (C.pad.y - (C.pad.diameter[Layer] / 2) < ymin) ymin = C.pad.y - (C.pad.diameter[Layer] / 2);
+
+	            	}
+	            }
+
+		        if (rectOK) {
+		        	if (debug) {
+						printf("PART: %s RECT R0 (%.4f %.4f) (%.4f %.4f);\n", E.name, u2mm(xmin), u2mm(ymin), u2mm(xmax), u2mm(ymax));
+					}
+					sprintf(s, "RECT R0 (%.4f %.4f) (%.4f %.4f);\n",
+						u2mm(xmin) - rectBorder,
+						u2mm(ymin) - rectBorder,
+						u2mm(xmax) + rectBorder,
+						u2mm(ymax) + rectBorder
+					);
+					// sprintf(s, "RECT R%.0f (%i %i) (%i %i);\n", E.angle, xmin, ymin, xmax, ymax);
+					cmd += s;
+				}
+			}
+		}
+	}
+}
+
+void makeScematicNp() {
+	schematic(X) {
+		X.sheets(S) {
+			// Loop throuh sheets to edit
+			sprintf(s, "EDIT .s%u;\n", S.number);
+			cmd += s;
+
+			deleteLayerContents(101);
+
+			S.parts(P) {
+				// printf("Part: %s\n", P.name);
+				P.instances(I) {
+					int place = strstr(I.value, "(NP)");
+					
+					if (place != -1) {
+						if (debug) {
+							printf("Part Instance: %s %s\n", I.name, I.value);
+							printf("Part xy: %.4f %.4f\n", u2inch(I.x), u2inch(I.y));
+
+							printf("LL: %.4f %.4f\n", u2inch(I.gate.symbol.area.x1), u2inch(I.gate.symbol.area.y1));
+							printf("TL: %.4f %.4f\n", u2inch(I.gate.symbol.area.x2), u2inch(I.gate.symbol.area.y2));
+						}
+
+						// Init max bounds vars
+						resetMaxBounds();
+
+			            // Find max parts bounds
+			            // start by looking for max rect bounds if there are any
+			            // then look for max bounds of wires
+			            // then look for max bounds of pins
+
+		            	I.gate.symbol.rectangles(R) {
+		            		if (R) {
+		            		
+			            		// Find max rect bound
+			            		// start point
+			            		if (R.x1 > xmax) xmax = R.x1;
+			            		if (R.y1 > ymax) ymax = R.y1;
+			            		if (R.x1 < xmin) xmin = R.x1;
+			            		if (R.y1 < ymin) ymin = R.y1;
+
+
+			            		// end point
+			            		if (R.x2 > xmax) xmax = R.x2;
+			            		if (R.y2 > ymax) ymax = R.y2;
+			            		if (R.x2 < xmin) xmin = R.x2;
+			            		if (R.y2 < ymin) ymin = R.y2;
+		            		}
+		            	}
+
+		            	I.gate.symbol.wires(L) {
+		            		if (L) {
+			            		
+			            		// find max wire bound
+			            		// start point
+			            		if (L.x1 > xmax) xmax = L.x1;
+			            		if (L.y1 > ymax) ymax = L.y1;
+			            		if (L.x1 < xmin) xmin = L.x1;
+			            		if (L.y1 < ymin) ymin = L.y1;
+
+
+			            		// end point
+			            		if (L.x2 > xmax) xmax = L.x2;
+			            		if (L.y2 > ymax) ymax = L.y2;
+			            		if (L.x2 < xmin) xmin = L.x2;
+			            		if (L.y2 < ymin) ymin = L.y2;
+			            	}
+			            }
+
+		            	I.gate.symbol.pins(U) {	
+		            		if (U) {
+			            		// Find max pin bound
+			            		if (U.x > xmax) xmax = U.x;
+	                			if (U.y > ymax) ymax = U.y;
+				                if (U.x < xmin) xmin = U.x;
+				                if (U.y < ymin) ymin = U.y;
+			            	}
+			            }
+
+						sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n",
+							schematicLineWidth,
+							u2inch(xmin) - schematicLineOvershoot,
+							u2inch(ymin) - schematicLineOvershoot,
+							u2inch(xmax) + schematicLineOvershoot,
+							u2inch(ymax) + schematicLineOvershoot
+							);
+						cmd += s;
+
+						sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n",
+							schematicLineWidth,
+							u2inch(xmin) - schematicLineOvershoot,
+							u2inch(ymax) + schematicLineOvershoot,
+							u2inch(xmax) + schematicLineOvershoot,
+							u2inch(ymin) - schematicLineOvershoot
+							);
+						cmd += s;
+
+					}
+				}
+			}
+		}
+	}
+}
+
+void buildBoardCommand() {
+	// Delete everything on layer 101
+	deleteLayerContents(101);
+	cmd += "LAYER 101;\n";
+	// Highlight np on layer 1
+	makeBoardNp(1);
+
+	// Delete everything on layer 102
+	deleteLayerContents(102);
+	cmd += "LAYER 102;\n";
+	// Highlight np on layer 2
+	makeBoardNp(16);
+
+	// Return editor to layer 1 by default
+	cmd += "LAYER 1;\n";
+}
+
+void buildSchematicCommand() {
+	cmd += "LAYER 101;\n";
+	cmd += "SET WIRE_BEND 2;\n";
+	cmd += "GRID Default;\n";
+
+	makeScematicNp();
+
+	cmd += "SET WIRE_BEND 0;\n";
+	cmd += "LAYER 91;\n";
+	cmd += "EDIT .s1;\n";
+	cmd += "WINDOW fit;\n";
+	cmd += "GRID last;\n";
+}
+
+output("/Users/harry/Desktop/debug.txt", "wt") {
+// script entry point
+if (board) {
+	buildBoardCommand();
+	// cmd += "EDIT .sch;\n";
+	// buildSchematicCommand();
+	// cmd += "EDIT .brd;\n";
+	
+	if (!argv[1]) {
+		if (dlgMessageBox(";Do you want to switch to the schematic?\nYou\'ll have to run the ULP again to update the schematic.\n", "+Yes", "-No") == 0) {
+			// User has selected yes
+			cmd += "EDIT .sch;\n";
+		}
+	}
+
+	exit(cmd);
+	
+
+} else if (schematic) {
+	buildSchematicCommand();
+	// cmd += "EDIT .brd;\n";
+	// buildBoardCommand();
+	// cmd += "EDIT .sch;\n";
+
+	if (!argv[1]) {
+		if (dlgMessageBox(";Do you want to switch to the board?\nYou\'ll have to run the ULP again to update the board.\n", "+Yes", "-No") == 0) {
+			// User has selected yes
+			cmd += "EDIT .brd;\n";
+		}
+	}
+
+	exit(cmd);
+} else {
+	dlgMessageBox("!Start this ULP in a Board or Schematic\n", "&OK");
+}
+}

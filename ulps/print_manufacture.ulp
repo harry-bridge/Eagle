@@ -1,0 +1,165 @@
+// print_manufacture.ulp
+// Generates all assembly data output:
+// 1. prints all sheets of the schematic to pdf
+// 2. prints all layers of the board to a pdf
+// 3. exports cam to zip for pannelisation
+// 4. exports bom/pick place data 
+// 5. exports pick/place data in format for IMP SMD machines
+
+// TODO add dropdown to select paper size
+// TOTO add options to enable/disable certain outputs
+
+string cmd = "";
+string s;
+
+string saveDirPath = "";
+string outputDirsToMake[] = { "BOM", "PCB", "PCB/Assembly_Print", "Schematic" };
+// No sizeof so input the length of the dirs array manually
+int numOutputDirsToMake = 4;
+
+string rootFilePath = "/Users/Harry/Desktop/test";
+
+
+int commandStatus = 0;
+
+int isWindows() {
+   //Returns 1, if EAGLE is running under Windows (0 for Linux/Mac)
+   if ((strsub(argv[0],0,1)=="/") && (strsub(argv[0],0,2)!="//")) {
+     return 0;
+   }
+
+   return 1;
+}
+
+int makeOutputDir(string _filePath) {
+	// Makes an output dir with the given filepath
+	// skips it if dir already exists
+	printf("filepath: %s\n", _filePath);
+	string a[];
+	int _filePathLen = 0;
+
+	_filePathLen = strlen(_filePath);
+
+	// check if the last char is a /
+	if (strrchr(_filePath, '/') == _filePathLen) {
+		sprintf(s, "%s*", _filePath);
+	} else {
+		sprintf(s, "%s/*", _filePath);
+	}
+
+	// check if dir exists
+	if (!fileglob(a, _filePath)) {
+		sprintf(s, "mkdir %s", _filePath);
+		return( system(s) );
+	}
+
+	return 0;
+}
+
+
+
+void setNPView() {
+	// put np crosses though all np components
+	cmd += "RUN highlight_np.ulp 0;\n";
+}
+
+void printSchematicSheets() {
+	setNPView();
+	// set auto confirm dialog to yes
+	cmd += "SET confirm Yes;\n";
+	// make sure vector font isn't being used currently to allow searchable PDF
+	cmd += "SET vector_font off;\n";
+
+	sprintf(s, "PRINT 1 -1 sheets all align c paper A3 -caption file %s/Schematic/%%N.pdf;\n", saveDirPath);
+	cmd += s;
+
+	cmd += "SET confirm off;\n";
+}
+
+void printAssemlbyPdf() {
+	// create board assembly print
+	// put NP rects on PCB
+	setNPView();
+
+	// auto confirm dialogs
+	cmd += "SET confirm Yes;\n";
+	// set vector font off to be able to search pdf
+	cmd += "SET vector_font off;\n";
+
+	// top assembly print
+	cmd += "DISPLAY None 20 21 25 51 101;\n";
+	sprintf(s, "PRINT 100 -1 align c paper A3 -caption file %s/PCB/Assembly_Print/%%N_Top_Assembly.pdf;\n", saveDirPath);
+	cmd += s;
+
+	// bottom asssembly print, mirror output as it's on the bottom
+	cmd += "DISPLAY None 20 22 26 52 102;\n";
+	sprintf(s, "PRINT 100 -1 align c mirror paper A3 -caption file %s/PCB/Assembly_Print/%%N_Bottom_Assembly.pdf;\n", saveDirPath);
+	cmd += s;
+
+	cmd += "DISPLAY preset_standard;\n";
+	cmd += "SET vector_font on;\n";
+	cmd += "SET confirm off;\n";
+}
+
+void generateOutput(int startedOnScematic, string rootDir) {
+	// ask user for output directory
+	saveDirPath = dlgDirectory("Select save directory", rootDir);
+
+	if (!saveDirPath) {
+		exit(0);
+	}
+
+	commandStatus = 0;
+	for (int i = 0; i < numOutputDirsToMake; i++) {
+		sprintf(s, "%s/%s", saveDirPath, outputDirsToMake[i]);
+		commandStatus += makeOutputDir(s);
+	}
+
+	if (commandStatus != 0) {
+		dlgMessageBox("!Error occurred when making directories", "&Close");
+		exit(0);
+	}
+	
+	cmd += "Edit .sch;\n";
+	printSchematicSheets();
+
+	cmd += "Edit .brd;\n";
+	printAssemlbyPdf();
+
+
+	if (startedOnScematic == 1) {
+		// started the ulp from the scematic editor
+		// ulp ends editing the board so don't need to switch back to it
+		cmd += "Edit .sch;\n";
+	} 
+}
+
+output("/Users/harry/Desktop/debug.txt", "wt") {
+// entry point
+if (board) {
+	board(B) {
+		generateOutput(0, filedir(B.name));
+	}
+
+} else if (schematic) {
+	// flag to indicate that we started on the shematic
+	schematic(S){
+		generateOutput(1, filedir(S.name));
+	}
+	
+} else {
+	// Not in a schematic or board, so offer to switch to on
+	int option = dlgMessageBox("!Please run this ULP from a board or schematic, would you like to switch to one now?", "&Board", "&Schematic", "&Cancel");
+
+	if (option == 0) {
+		// board selected
+		cmd += "Edit .brd;\n";
+	} else if (option == 1) {
+		// schematic selected
+		cmd += "Edit .sch;\n";
+	}
+}
+}
+
+// exit and run command
+exit(cmd);
