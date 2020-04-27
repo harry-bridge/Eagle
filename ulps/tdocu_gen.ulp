@@ -1,0 +1,418 @@
+// tDocu_gen.ulp
+// Automatically generates a tdocu layer for smd footprints 
+
+int topLayer = 1;
+int bottomLayer = 16;
+int tDocuLayer = 51;
+real lineWidth = 0.15;
+
+// First keep track of pad center bounds
+int xmax = INT_MIN;
+int xmin = INT_MAX;
+int ymax = xmax;
+int ymin = xmin;
+
+// bounds of the package
+int innerXmax = INT_MIN;
+int innerXmin = INT_MAX;
+int innerYmax = xmax;
+int innerYmin = xmin;
+
+// inner bounds of the package
+int smdXmax = INT_MIN;
+int smdXmin = INT_MAX;
+int smdYmax = xmax;
+int smdYmin = xmin;
+
+int normalDx = 0;
+int normalDy = 0;
+
+string cmd = "";
+string s = "";
+
+// Dialog variables
+int result = 0;
+// Checkboxes in dialog
+// const
+int packageTypeLeaded = 0;
+// const
+int packageTypeLeadless = 1;
+int userPackageType = 0;
+int userClearTdocu = 1;
+// convert checkbox value to line / polygon
+int userFilledSmds = 0;
+int userFilledCenterPad = 1;
+
+real smdOutlineYmax = 0;
+real smdOutlineYmin = 0;
+real smdOutlineXmax = 0;
+real smdOutlineXmin = 0;
+
+void resetMaxBounds() {
+	xmax = INT_MIN;
+	xmin = INT_MAX;
+	ymax = xmax;
+	ymin = xmin;
+
+	innerXmax = INT_MIN;
+	innerXmin = INT_MAX;
+	innerYmax = xmax;
+	innerYmin = xmin;
+
+	smdXmax = INT_MIN;
+	smdXmin = INT_MAX;
+	smdYmax = xmax;
+	smdYmin = xmin;
+}
+
+void deleteLayerContents(int Layer) {
+	sprintf(s, "DISPLAY None %u;\n", Layer);
+	cmd += s;
+	cmd += "GROUP all;\n";
+	cmd += "DELETE (>0 0);\n";
+	cmd += "DISPLAY last;\n";
+}
+
+void normaliseDxDy(UL_SMD smd) {
+	// normalises the dx, dy of an smd to take into account rotation of the pad
+	// returns dx that will always be along the x axis and dy that is along the y axis
+
+	if (smd.angle == 0 || smd.angle == 180) {
+		// at 0 and 180, dx and dy are aligned with the axes
+		// real dx, dy
+		normalDx = smd.dx;
+		normalDy = smd.dy;
+
+	} else if (smd.angle == 90 || smd.angle == 270) {
+		// real dx, dy
+		normalDx = smd.dy;
+		normalDy= smd.dx;
+
+	} else {
+		// currently unhandled, work out how to deal with it if it occurs
+		sprintf(s, "Invalid SMD angle found: %.2f", smd.angle);
+		dlgMessageBox(s, "-&Close");
+		exit(0);
+
+	}
+}
+
+void genTdocu() {
+	sprintf(s, "LAYER %u;\n", tDocuLayer);
+	cmd += s;
+
+	package(P) {
+		// loop though smds and generate tdocu
+		P.contacts(C) {
+			// first find the bounds of the package
+			if (C.smd && C.smd.layer == topLayer) {
+				if (C.smd.x > xmax) xmax = C.smd.x;
+				if (C.smd.x < xmin) xmin = C.smd.x;
+				if (C.smd.y > ymax) ymax = C.smd.y;
+				if (C.smd.y < ymin)	ymin = C.smd.y;
+
+			}
+		}
+
+		// how much to pad the smd outline by;
+		int _pad = 0;
+		P.contacts(C) {
+			if (C.smd && C.smd.layer == topLayer) {
+				normaliseDxDy(C.smd);
+				int _tempBound = 0;
+				if (C.smd.x == xmax) {
+					// different padding option for leadless or leaded packages
+					_pad = normalDx / 2;
+					if (userPackageType == packageTypeLeadless) {
+						if (normalDx > normalDy) _pad = 0;
+					}
+
+					if (normalDx > normalDy) {
+						innerXmax = C.smd.x - _pad;
+						smdXmax = C.smd.x - normalDx / 2;
+					} else {
+						innerXmax = C.smd.x + _pad;
+						smdXmax = C.smd.x + normalDx / 2;
+					}
+				}
+
+				if (C.smd.x == xmin) {
+					// different padding option for leadless or leaded packages
+					_pad = normalDx / 2;
+					if (userPackageType == packageTypeLeadless) {
+						if (normalDx > normalDy) _pad = 0;
+					}
+
+					if (normalDx > normalDy) {
+						innerXmin = C.smd.x + _pad;
+						smdXmin = C.smd.x + normalDx / 2;
+					} else {
+						innerXmin = C.smd.x - _pad;
+						smdXmin = C.smd.x - normalDx / 2;
+					}
+				}
+
+				if (C.smd.y == ymax) {
+					// different padding option for leadless or leaded packages
+					_pad = normalDy / 2;
+					if (userPackageType == packageTypeLeadless) {
+						if (normalDy > normalDx) _pad = 0;
+					}
+
+					if (normalDx > normalDy) {
+						innerYmax = C.smd.y + _pad;
+						smdYmax = C.smd.y + normalDy / 2;
+					} else {
+						innerYmax = C.smd.y - _pad;
+						smdYmax = C.smd.y - normalDy / 2;
+					}
+				}
+
+				if (C.smd.y == ymin) {
+					// different padding option for leadless or leaded packages
+					_pad = normalDy / 2;
+					if (userPackageType == packageTypeLeadless) {
+						if (normalDy > normalDx) _pad = 0;
+					}
+
+					if (normalDx > normalDy) {
+						innerYmin = C.smd.y - _pad;
+						smdYmin = C.smd.y - normalDy / 2;
+					} else {
+						innerYmin = C.smd.y + _pad;
+						smdYmin = C.smd.y + normalDy / 2;
+					}
+				}
+			}
+		}
+
+		// Make inner package smd bounds
+		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmax), u2mm(innerXmax), u2mm(innerYmax));
+		cmd += s;
+		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmin));
+		cmd += s;
+		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmin), u2mm(innerYmax));
+		cmd += s;
+		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmax), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmax));
+		cmd += s;
+
+		P.contacts(C) {
+			int _centerPad = 0;
+			// Only draw pads on the outside of packages
+			if (C.smd && C.smd.layer == topLayer) {
+				normaliseDxDy(C.smd);
+
+				if (C.smd.y >= smdYmax && smdXmin < C.smd.x < smdXmax) {
+					// Create pad tdocu for pads at top of package
+					smdOutlineXmin = u2mm(C.smd.x - (normalDx / 4));
+					smdOutlineXmax = u2mm(C.smd.x + (normalDx / 4));
+					smdOutlineYmin = u2mm(C.smd.y - (normalDy / 2));
+					smdOutlineYmax = u2mm(C.smd.y + (normalDy / 4));
+
+					if (userPackageType == packageTypeLeadless) {
+						smdOutlineYmin += (lineWidth / 2);
+						smdOutlineYmax = u2mm(C.smd.y);
+					}
+					
+				} else if (C.smd.y <= smdYmin && smdXmin < C.smd.x < smdXmax) {
+					// Create pad tdocu for pads at the bottom of package
+					smdOutlineXmin = u2mm(C.smd.x - (normalDx / 4));
+					smdOutlineXmax = u2mm(C.smd.x + (normalDx / 4));
+					smdOutlineYmin = u2mm(C.smd.y - (normalDy / 4));
+					smdOutlineYmax = u2mm(C.smd.y + (normalDy / 2));
+
+					if (userPackageType == packageTypeLeadless) {
+						smdOutlineYmax -= (lineWidth / 2);
+						smdOutlineYmin = u2mm(C.smd.y);
+					}
+
+				} else if (C.smd.x >= smdXmax && smdYmin < C.smd.y < smdYmax) {
+					// Create pad tdocu for pads on right of package
+					smdOutlineXmin = u2mm(C.smd.x - (normalDx / 2));
+					smdOutlineXmax = u2mm(C.smd.x + (normalDx / 4));
+					smdOutlineYmin = u2mm(C.smd.y - (normalDy / 4));
+					smdOutlineYmax = u2mm(C.smd.y + (normalDy / 4));
+
+					if (userPackageType == packageTypeLeadless) {
+						smdOutlineXmin += (lineWidth / 2);
+						smdOutlineXmax = u2mm(C.smd.x);	
+					}
+
+				} else if (C.smd.x <= smdXmin && smdYmin < C.smd.y < smdYmax) {
+					// Create pad tdocu for pads on the left of package
+					smdOutlineXmin = u2mm(C.smd.x - (normalDx / 4));
+					smdOutlineXmax = u2mm(C.smd.x + (normalDx / 2));
+					smdOutlineYmin = u2mm(C.smd.y - (normalDy / 4));
+					smdOutlineYmax = u2mm(C.smd.y + (normalDy / 4));
+
+					if (userPackageType == packageTypeLeadless) {
+						smdOutlineXmax -= (lineWidth / 2);
+						smdOutlineXmin = u2mm(C.smd.x);
+					}
+
+				} else {
+					// if its inside the package it's probably the center pad
+					_centerPad = 1;
+					smdOutlineXmin = u2mm(C.smd.x - normalDx / 2) + (lineWidth / 2);
+					smdOutlineXmax = u2mm(C.smd.x + normalDx / 2) - (lineWidth / 2);
+					smdOutlineYmin = u2mm(C.smd.y - normalDy / 2) + (lineWidth / 2);
+					smdOutlineYmax = u2mm(C.smd.y + normalDy / 2) - (lineWidth / 2);
+				}
+				
+
+
+				if (userFilledSmds || (_centerPad && userFilledCenterPad)) {
+					// User has requesed smd pads be filled
+					cmd += "CHANGE pour solid;\n";
+
+					sprintf(s, "POLYGON %f (%.4f %.4f) (%.4f %.4f) (%.4f %.4f) (%.4f %.4f) (%.4f %.4f);\n",
+						lineWidth,
+						smdOutlineXmin,
+						smdOutlineYmin,
+
+						smdOutlineXmin,
+						smdOutlineYmax,
+
+						smdOutlineXmax,
+						smdOutlineYmax,
+
+						smdOutlineXmax,
+						smdOutlineYmin,
+
+						smdOutlineXmin,
+						smdOutlineYmin
+						);
+					cmd += s;
+
+				} else {
+					// Create pad tdocu outline
+					// left line
+					sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", 
+						lineWidth,
+						smdOutlineXmin,
+						smdOutlineYmin,
+						smdOutlineXmin,
+						smdOutlineYmax
+						);
+					cmd += s;
+
+					// top line
+					sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", 
+						lineWidth,
+						smdOutlineXmin,
+						smdOutlineYmax,
+						smdOutlineXmax,
+						smdOutlineYmax
+						);
+					cmd += s;
+
+					// right line
+					sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", 
+						lineWidth,
+						smdOutlineXmax,
+						smdOutlineYmax,
+						smdOutlineXmax,
+						smdOutlineYmin
+						);
+					cmd += s;
+					
+					// bottome line
+					sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", 
+						lineWidth,
+						smdOutlineXmin,
+						smdOutlineYmin,
+						smdOutlineXmax,
+						smdOutlineYmin
+						);
+					cmd += s;
+
+				}
+			}
+		}
+	}
+	// change back to top layer by default
+	cmd += "LAYER 1;\n";
+}
+
+void showOptionsDialog() {
+	// Options dialog box, let the user decide what layers to make
+	// and whether to clear tdocu before generation
+}
+ 
+output("/Users/harry/Desktop/debug.txt", "wt") {
+// entry point
+if (package) {
+	//use dlgRadioButton only in dlgGroup!
+
+	result = dlgDialog("tDocu Generator") {
+		dlgVBoxLayout {
+			dlgHBoxLayout {
+				dlgStretch(0);
+				dlgGroup("Package Style") {
+					dlgGridLayout {
+						dlgCell(0, 0)  dlgRadioButton("Leaded", userPackageType);
+						dlgCell(1, 0)  dlgRadioButton("Leadless", userPackageType);
+						
+						// 30 pixels fixed distance
+						// dlgCell(1, 6) { dlgSpacing(30); dlgCheckBox("R&otate", rotate); };
+						// dlgCell(2, 6) { dlgSpacing(30); dlgCheckBox("&Mirror", mirror); };
+						// dlgCell(3, 6) { dlgSpacing(30); dlgCheckBox("&Flip", flip); };
+					}
+					dlgStretch(0);
+				}
+				
+				dlgSpacing(30);
+				dlgGroup("Other Options") {
+					dlgStretch(0);
+					dlgGridLayout {
+						dlgCell(0, 0) dlgCheckBox("Clear tDocu layer first", userClearTdocu);
+						dlgCell(1, 0) dlgCheckBox("Filled smd polygons", userFilledSmds);
+						dlgCell(2, 0) dlgCheckBox("Filled center pad", userFilledCenterPad);
+					}
+				}
+			}
+
+			dlgStretch(0);
+			dlgHBoxLayout {
+				// dlgSpacing(20);
+				// dlgStretch(1);
+				dlgPushButton("-&Cancel") dlgReject();
+
+				// dlgStretch(1);
+				// }
+				// dlgHBoxLayout {
+				dlgSpacing(30);
+				dlgPushButton("+&Generate") dlgAccept();
+				// dlgStretch(1);
+
+				// dlgStretch(1);
+				// }
+				}
+			// dlgStretch(1);
+			}
+		};
+
+	if (result == 0) {
+		exit (0);
+	}
+
+	cmd += "GRID mm;\n";
+
+	if (userClearTdocu) {
+		// Only clear tDocu contents if user wants to 
+		deleteLayerContents(tDocuLayer);
+	}
+	
+	genTdocu();
+
+	cmd += "GRID last;\n";
+	cmd += "WINDOW fit;\n";
+	
+	
+} else {
+	dlgMessageBox("!Please start this ULP from a footprint", "-&Close");
+	exit(0);
+}
+}
+
+exit(cmd);
