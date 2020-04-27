@@ -302,7 +302,7 @@ if (board) {
 	};
 
 } else {
-	if (dlgMessageBox("!Start this ULP in a Board\nDo you want to switch to the board editor", "&Yes", "&No") == 0) {
+	if (dlgMessageBox("!Run this ULP from a Board\nDo you want to switch to the board editor now?", "&Yes", "&No") == 0) {
 		cmd += "EDIT .brd;\n";
 	}
 
