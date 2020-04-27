@@ -29,6 +29,9 @@ int xmin = INT_MAX;
 int ymax = xmax;
 int ymin = xmin;
 
+int normalDx = 0;
+int normalDy = 0;
+
 void resetMaxBounds() {
 	xmax = INT_MIN;
 	xmin = INT_MAX;
@@ -42,6 +45,30 @@ void deleteLayerContents(int Layer) {
 	cmd += "GROUP all;\n";
 	cmd += "DELETE (>0 0);\n";
 	cmd += "DISPLAY last;\n";
+}
+
+void normaliseDxDy(UL_SMD smd) {
+	// normalises the dx, dy of an smd to take into account rotation of the pad
+	// returns dx that will always be along the x axis and dy that is along the y axis
+
+	if (smd.angle == 0 || smd.angle == 180) {
+		// at 0 and 180, dx and dy are aligned with the axes
+		// real dx, dy
+		normalDx = smd.dx;
+		normalDy = smd.dy;
+
+	} else if (smd.angle == 90 || smd.angle == 270) {
+		// real dx, dy
+		normalDx = smd.dy;
+		normalDy= smd.dx;
+
+	} else {
+		// currently unhandled, work out how to deal with it if it occurs
+		sprintf(s, "Invalid SMD angle found: %.2f", smd.angle);
+		dlgMessageBox(s, "-&Close");
+		exit(0);
+
+	}
 }
 
 void makeBoardNp(int Layer) {
@@ -66,18 +93,13 @@ void makeBoardNp(int Layer) {
 	            			printf("SMD %s: dx: %f, %u, angle: %f\n", E.name, u2mm(C.smd.dx), C.smd.dx, C.smd.angle);
 	            			printf("SMD %s: dy: %f, %u\n", E.name, u2mm(C.smd.dy), C.smd.dy);
             			}
-	 					
-		                if (C.smd.x + (C.smd.dx / 2) > xmax) xmax = C.smd.x + (C.smd.dx / 2);
-		                if (C.smd.y + (C.smd.dy / 2) > ymax) ymax = C.smd.y + (C.smd.dy / 2);
-		                if (C.smd.x - (C.smd.dx / 2) < xmin) xmin = C.smd.x - (C.smd.dx / 2);
-		                if (C.smd.y - (C.smd.dy / 2) < ymin) ymin = C.smd.y - (C.smd.dy / 2);
+            			// work out max bounds for normalised dx dy smd
+	 					normaliseDxDy(C.smd);
+ 						if (C.smd.x + (normalDx / 2) > xmax) xmax = C.smd.x + (normalDx / 2);
+		                if (C.smd.y + (normalDy / 2) > ymax) ymax = C.smd.y + (normalDy / 2);
+		                if (C.smd.x - (normalDx / 2) < xmin) xmin = C.smd.x - (normalDx / 2);
+		                if (C.smd.y - (normalDy / 2) < ymin) ymin = C.smd.y - (normalDy / 2);
 
-		                // if a pad has the same x, y but is rotated then dx, dy retains the same dimentions
-		                // so try the opposite combinations as well, ie xmin with dy
-		                if (C.smd.x + (C.smd.dy / 2) > xmax) xmax = C.smd.x + (C.smd.dy / 2);
-		                if (C.smd.y + (C.smd.dx / 2) > ymax) ymax = C.smd.y + (C.smd.dx / 2);
-		                if (C.smd.x - (C.smd.dy / 2) < xmin) xmin = C.smd.x - (C.smd.dy / 2);
-		                if (C.smd.y - (C.smd.dx / 2) < ymin) ymin = C.smd.y - (C.smd.dx / 2);
 
 	            	} 
 	            	if (C.pad) {
@@ -280,6 +302,15 @@ if (board) {
 
 	exit(cmd);
 } else {
-	dlgMessageBox("!Start this ULP in a Board or Schematic\n", "&OK");
+	// Not in a schematic or board, so offer to switch to on
+	int option = dlgMessageBox("!Please run this ULP from a board or schematic, would you like to switch to one now?", "&Board", "&Schematic", "-&Cancel");
+
+	if (option == 0) {
+		// board selected
+		cmd += "Edit .brd;\n";
+	} else if (option == 1) {
+		// schematic selected
+		cmd += "Edit .sch;\n";
+	}
 }
 }
