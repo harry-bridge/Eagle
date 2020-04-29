@@ -1,0 +1,102 @@
+// set_used_layers.ulp
+
+int usedLayers[];
+int usedLayerPtr = 0;
+
+int defaultLayersBoard[] = {17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 101, 102};
+int defautlLayersSch[] = {88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 101};
+int defaultLayersPac[] = {17, 20, 21, 22, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52};
+
+int defaultLayers[];
+int defaultLayerPtr = 0;
+int nDefaultLayers = 0;
+
+string cmd = "";
+string s = "";
+
+int i = 0;
+
+void setUsedLayers() {
+	// Add default layers into layer array
+	for (i = 0; i < nDefaultLayers; i++) {
+		usedLayers[usedLayerPtr] = defaultLayers[i];
+		usedLayerPtr ++;
+	}
+
+	// Sort the used layer array, ascending
+	sort(usedLayerPtr, usedLayers);
+	cmd += "SET used_layers";
+	
+	for (i = 0; i < usedLayerPtr; i++) {
+		sprintf(s, " %u", usedLayers[i]);
+		cmd += s;
+	}
+
+	cmd += ";\n";
+	printf("%s\n", cmd);
+}
+
+output("/Users/harry/Desktop/debug.txt", "wt") {
+// entry point
+if (board) {
+	// calc length of default layers
+	for (nDefaultLayers = 0; defaultLayersBoard[nDefaultLayers]; nDefaultLayers++) {
+		defaultLayers[nDefaultLayers] = defaultLayersBoard[nDefaultLayers];
+	}	
+
+	board(B) {
+		B.layers(L) {
+			// printf("Layer: %u\n", L.number);
+			// Add all used layers into the used layer array
+			if (L.used) {
+				usedLayers[usedLayerPtr] = L.number;
+				usedLayerPtr ++;
+			}
+		}
+	}
+	
+} else if (schematic) {
+	// calc length of default layers
+	for (nDefaultLayers = 0; defautlLayersSch[nDefaultLayers]; nDefaultLayers++) {
+		defaultLayers[nDefaultLayers] = defautlLayersSch[nDefaultLayers];
+	}
+
+	schematic(S) {
+		S.layers(L) {
+			// printf("Layer: %u\n", L.number);
+			// Add all used layers into the used layer array
+			if (L.used) {
+				usedLayers[usedLayerPtr] = L.number;
+				usedLayerPtr ++;
+			}
+		}
+	}
+// 	setUsedLayers();
+// exit(cmd);
+
+// } else if (package) {
+// 	// calc length of default layers
+// 	for (int nDefaultLayers = 0; defaultLayersPac[nDefaultLayers]; nDefaultLayers++) {
+// 		defaultLayers[nDefaultLayers] = defaultLayersPac[nDefaultLayers];
+// 	}
+
+// 	package(P) {
+// 		P.layers(L) {
+// 			// printf("Layer: %u\n", L.number);
+// 			// Add all used layers into the used layer array
+// 			if (L.used) {
+// 				usedLayers[usedLayerPtr] = L.number;
+// 				usedLayerPtr ++;
+// 			}
+// 		}
+// 		setUsedLayers();
+// 		exit(cmd);
+	
+} else {
+	exit(0);
+}
+
+
+setUsedLayers();
+exit(cmd);
+}
