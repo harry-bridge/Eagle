@@ -317,7 +317,7 @@
                         "PTH": true,
                         "VIA": true
                     },
-                    "filename_format": "%DRILLPREFIX/drills_%FROM_%TO.xln",
+                    "filename_format": "%DRILLPREFIX/drills_%FROM_%TO.txt",
                     "layers": {
                         "from": 1,
                         "to": 16
