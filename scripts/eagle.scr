@@ -14,14 +14,11 @@ LAYER 101 tAssmNP;
 LAYER 102 bAssmNP;
 LAYER 1; # Default to being on layer 1
 
-# Get rid of the extra internal layers17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 101 102; 
-# SET used_layers 1 2;
-# SET used_Layers 
-# RUN set_used_layers;
+# Get rid of the extra internal layers
+# SET used_layers 1 2 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 101 102;
 
 GRID = Metric mm 0.25 lines on alt mm 0.125;
 GRID = Inch_MM mm 1.27 lines on alt mm 0.127;
-GRID Last;
 
 MENU '[Volumes/Sidecar/EAGLE/ulps/samacsys.svg] SamacSys : Run samacsys.ulp;'\
 ;
@@ -75,8 +72,7 @@ LAYER 91; # Default to being on layer 91
 
 # Get rid of the extra random layers
 # SET Used_Layers 88 89 90 91 92 93 94 95 96 97 98 101
-
-
+	
 Grid Default;
 Change Width 0.006in;
 MENU '[Volumes/Sidecar/EAGLE/ulps/samacsys.svg] SamacSys : Run samacsys.ulp;'\
