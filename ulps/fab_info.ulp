@@ -49,6 +49,9 @@ string bgaLookFor[] = {"QFN", "BGA", "SON", "DFN"};
 // number of strings in the above array as there is no sizeof() here
 int numBgaMatches = 4;
 
+// Number of layers used 
+int numCopperLayers = 0;
+
 
 // Ignore any parts whos value contain these strings
 string IgnoreValueStrings[] = {"(NP)", "FID"};
@@ -205,6 +208,14 @@ if (board) {
 			originY = ymin * -1;
 		}
 
+		B.layers(L) {
+			if (L.number <= LAYER_BOTTOM && L.number >= LAYER_TOP) {
+				if (L.used) {
+					numCopperLayers ++;
+				}
+			}
+		}
+
 		// board size from wires in editor
 		// boardWidth = xmax - xmin;
 		// boardHeight = ymax - ymin;
@@ -222,87 +233,121 @@ if (board) {
 	}	
 
 	dlgDialog("Fabrication info") {
-		dlgLabel("Dimensions:");
+		dlgVBoxLayout {
+			dlgGroup("Dimensions:") {
+	 			dlgStretch(0);
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Board Width:");
+					sprintf(s, "%.2fmm", u2mm(boardWidth));
+					dlgCell(0, 1)  dlgLabel(s);
+					sprintf(s, "%.3fin", u2inch(boardWidth));
+					dlgCell(0, 2)  dlgLabel(s);
 
- 		dlgStretch(0);
- 		dlgGridLayout {
- 			dlgCell(0, 0) dlgLabel("Board Width:");
- 			sprintf(s, "%.2fmm", u2mm(boardWidth));
-       		dlgCell(0, 1)  dlgLabel(s);
-       		sprintf(s, "%.3fin", u2inch(boardWidth));
-       		dlgCell(0, 2)  dlgLabel(s);
+					dlgCell(1, 0) dlgLabel("Board Height:");
+					sprintf(s, "%.2fmm", u2mm(boardHeight));
+					dlgCell(1, 1)  dlgLabel(s);
+					sprintf(s, "%.3fin", u2inch(boardHeight));
+					dlgCell(1, 2)  dlgLabel(s);
+				}
+			}
 
-       		dlgCell(1, 0) dlgLabel("Board Height:");
-       		sprintf(s, "%.2fmm", u2mm(boardHeight));
-       		dlgCell(1, 1)  dlgLabel(s);
-       		sprintf(s, "%.3fin", u2inch(boardHeight));
-       		dlgCell(1, 2)  dlgLabel(s);
-       	}
+			dlgSpacing(10);
+			
+			dlgGroup("Placements:") {
+				dlgStretch(0);
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Sides of SMD placements:");
+					sprintf(s, "%u", numSmdSides);
+					dlgCell(0, 1)  dlgLabel(s);
 
-     	dlgSpacing(20);
-     	dlgLabel("Placements:");
+					dlgCell(1, 0) dlgLabel("Total number of placements:");
+					sprintf(s, "%u", numTotalPlacements);
+					dlgCell(1, 1)  dlgLabel(s);
 
- 		dlgStretch(0);
- 		dlgGridLayout {
-	   		dlgCell(0, 0) dlgLabel("Sides of SMD placements:");
- 			sprintf(s, "%u", numSmdSides);
-       		dlgCell(0, 1)  dlgLabel(s);
+					dlgCell(2, 0) dlgLabel("Total number of PTH placements:");
+					sprintf(s, "%u", numPthPlacements);
+					dlgCell(2, 1)  dlgLabel(s);
 
-	   		dlgCell(1, 0) dlgLabel("Total number of placements:");
- 			sprintf(s, "%u", numTotalPlacements);
-       		dlgCell(1, 1)  dlgLabel(s);
+					dlgCell(3, 0) dlgLabel("Total number of BGA/QFN placements:");
+					sprintf(s, "%u", numBgaPlacements);
+					dlgCell(3, 1)  dlgLabel(s);
 
-       		dlgCell(2, 0) dlgLabel("Total number of PTH placements:");
- 			sprintf(s, "%u", numPthPlacements);
-       		dlgCell(2, 1)  dlgLabel(s);
+					dlgCell(4, 0) dlgLabel("Calulated number of SMD placements:");
+					sprintf(s, "%u", numSmdPlacements);
+					dlgCell(4, 1)  dlgLabel(s);
 
-       		dlgCell(3, 0) dlgLabel("Total number of BGA/QFN placements:");
- 			sprintf(s, "%u", numBgaPlacements);
-       		dlgCell(3, 1)  dlgLabel(s);
+					dlgCell(5, 0) dlgLabel("Number of unique components:");
+					sprintf(s, "%u", numUniqueComponents);
+					dlgCell(5, 1)  dlgLabel(s);
+				}
+			}
 
-       		dlgCell(4, 0) dlgLabel("Calulated number of SMD placements:");
- 			sprintf(s, "%u", numSmdPlacements);
-       		dlgCell(4, 1)  dlgLabel(s);
+			dlgSpacing(10);
+			
+			dlgGroup("Stackup:") {
+				dlgStretch(0);
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Copper layers:");
+					sprintf(s, "%u", numCopperLayers);
+					dlgCell(0, 1)  dlgLabel(s);
 
-       		dlgCell(5, 0) dlgLabel("Number of unique components:");
- 			sprintf(s, "%u", numUniqueComponents);
-       		dlgCell(5, 1)  dlgLabel(s);
-       	}
+					// dlgCell(1, 0) dlgLabel("Total number of placements:");
+					// sprintf(s, "%u", numTotalPlacements);
+					// dlgCell(1, 1)  dlgLabel(s);
 
-       	dlgSpacing(20);
-       	dlgLabel("Extra info:");
+					// dlgCell(2, 0) dlgLabel("Total number of PTH placements:");
+					// sprintf(s, "%u", numPthPlacements);
+					// dlgCell(2, 1)  dlgLabel(s);
 
- 		dlgStretch(0);
- 		dlgGridLayout {
-	   		dlgCell(0, 0) dlgLabel("Number of top SMD placements:");
- 			sprintf(s, "%u", numSmdTopPlacements);
-       		dlgCell(0, 1)  dlgLabel(s);
+					// dlgCell(3, 0) dlgLabel("Total number of BGA/QFN placements:");
+					// sprintf(s, "%u", numBgaPlacements);
+					// dlgCell(3, 1)  dlgLabel(s);
 
-	   		dlgCell(1, 0) dlgLabel("Number of bottom SMD placements:");
- 			sprintf(s, "%u", numSmdBottomPlacements);
-       		dlgCell(1, 1)  dlgLabel(s);
+					// dlgCell(4, 0) dlgLabel("Calulated number of SMD placements:");
+					// sprintf(s, "%u", numSmdPlacements);
+					// dlgCell(4, 1)  dlgLabel(s);
 
-       		dlgCell(2, 0) dlgLabel("X origin relative to left of board:");
- 			sprintf(s, "%.2fmm", u2mm(originX));
-       		dlgCell(2, 1)  dlgLabel(s);
-       		sprintf(s, "%.3fin", u2inch(originX));
-       		dlgCell(2, 2)  dlgLabel(s);
+					// dlgCell(5, 0) dlgLabel("Number of unique components:");
+					// sprintf(s, "%u", numUniqueComponents);
+					// dlgCell(5, 1)  dlgLabel(s);
+				}
+			}
+
+			dlgSpacing(10);
+
+			dlgGroup("Extra info:") {
+				dlgStretch(0);
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Number of top SMD placements:");
+					sprintf(s, "%u", numSmdTopPlacements);
+					dlgCell(0, 1)  dlgLabel(s);
+
+					dlgCell(1, 0) dlgLabel("Number of bottom SMD placements:");
+					sprintf(s, "%u", numSmdBottomPlacements);
+					dlgCell(1, 1)  dlgLabel(s);
+
+					dlgCell(2, 0) dlgLabel("X origin relative to left of board:");
+					sprintf(s, "%.2fmm", u2mm(originX));
+					dlgCell(2, 1)  dlgLabel(s);
+					sprintf(s, "%.3fin", u2inch(originX));
+					dlgCell(2, 2)  dlgLabel(s);
 
 
-       		dlgCell(3, 0) dlgLabel("Y origin relative to bottom of board:");
- 			sprintf(s, "%.2fmm", u2mm(originY));
-       		dlgCell(3, 1)  dlgLabel(s);
-       		sprintf(s, "%.3fin", u2inch(originY));
-       		dlgCell(3, 2)  dlgLabel(s);
-       	}
+					dlgCell(3, 0) dlgLabel("Y origin relative to bottom of board:");
+					sprintf(s, "%.2fmm", u2mm(originY));
+					dlgCell(3, 1)  dlgLabel(s);
+					sprintf(s, "%.3fin", u2inch(originY));
+					dlgCell(3, 2)  dlgLabel(s);
+				}
+			}
 
-     	dlgSpacing(20);
-     	dlgPushButton("+Done") dlgAccept();
-
+			dlgSpacing(10);
+			dlgPushButton("+Done") dlgAccept();
+		}
 	};
 
 } else {
-	if (dlgMessageBox("!Run this ULP from a Board\nDo you want to switch to the board editor now?", "&Yes", "&No") == 0) {
+	if (dlgMessageBox("!Run this ULP from a Board\nDo you want to switch to the board editor now?", "+&Yes", "-&No") == 0) {
 		cmd += "EDIT .brd;\n";
 	}
 
