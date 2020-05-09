@@ -46,9 +46,9 @@ if (board) {
 
 	board(B) {
 		B.layers(L) {
-			// printf("Layer: %u\n", L.number);
 			// Add all used layers into the used layer array
-			if (L.used) {
+			// Adds top and bottom layers in even if they aren't used
+			if (L.used || L.number == LAYER_TOP || L.number == LAYER_BOTTOM) {
 				usedLayers[usedLayerPtr] = L.number;
 				usedLayerPtr ++;
 			}
