@@ -1,15 +1,15 @@
 #usage "<b>Search and Download free EAGLE symbols and footprints</b><p>\n"
-"Version: 1.9 - The SamacSys Autodesk EAGLE ULP - 29-6-18<br/>"
-"<author>Author: SamacSys (info@samacsys.com). Visit http://componentsearchengine.com to learn more.</author>"
+"Version: 2.2 - The SamacSys Autodesk EAGLE ULP - 30-4-20<br/>"
+"<author>Author: SamacSys (info@samacsys.com). Visit https://componentsearchengine.com to learn more.</author>"
 #require 5.1000
-string version = "V2.0";  //Plugin version
+string version = "V2.2";  //Plugin version
 #include "json.inc"
 
 string partsListHeader = "Symbol\tFootprint\t3D\tDatasheet\tDescription\tManufacturer\tManufacturer Part No";
 
 string getHomePage (){
      string homepage;
-     homepage = "http://componentsearchengine.com/ExtRef/ulp/ulp2.htm";
+     homepage = "https://componentsearchengine.com/ExtRef/ulp/ulp2.htm";
      if( netget( homepage, homepage) >= 0 ){
           return homepage; }
      else {
@@ -20,7 +20,7 @@ string getHomePage (){
 
 string getAddPartPage (){
 	string addPartPage;
-	addPartPage = "http://componentsearchengine.com/ExtRef/ulp/AddPart.htm";
+	addPartPage = "https://componentsearchengine.com/ExtRef/ulp/AddPart.htm";
 	if( netget( addPartPage, addPartPage) >= 0 ){
 		return addPartPage; }
 	else {
@@ -31,7 +31,7 @@ string getAddPartPage (){
 
 string getAddPartPage2 (){
 	string addPartPage2;
-	addPartPage2 = "http://componentsearchengine.com/ExtRef/ulp/AddPart2.htm";
+	addPartPage2 = "https://componentsearchengine.com/ExtRef/ulp/AddPart2.htm";
 	if( netget( addPartPage2, addPartPage2) >= 0 ){
 		return addPartPage2; }
 	else {
@@ -159,7 +159,7 @@ partNoSend = urlEncode(partNo[1]);
 
 string getPartDetailsPage (string partID){
 	string homepage;
-	homepage = "http://eagle.componentsearchengine.com/tools/Eagle/index.php?partID=" + partID + "&mna=" + manufSend + "&mpn=" + partNoSend;
+	homepage = "https://eagle.componentsearchengine.com/tools/Eagle/index.php?partID=" + partID + "&mna=" + manufSend + "&mpn=" + partNoSend;
 	if( netget( homepage, homepage) >= 0 ){
 		return homepage; }
 	else {
@@ -446,10 +446,16 @@ void InitCfg(void) {
 
 int DoSearch(string key)
 {
-   string Result;
-   string partno;
-      
-	if (netget(Result, "http://eagle.componentsearchengine.com/cgi-bin/Alligator.cgi?detail=0&searchString=" + key + "&offset=0&country=GB&language=en&source=63")
+    string Result;
+    string partno;
+    string alligatorURL;
+    if (username != "" && password != "") {
+		alligatorURL = "https://" + username + ":" + password + "@eagle.componentsearchengine.com/ga/alligatorHandler.php?use=EaglePlugin&detail=0&searchString=" + key + "&offset=0&country=GB&language=en&source=63&et=eagle&pv=2.2";
+    }
+	else {
+		alligatorURL = "https://eagle.componentsearchengine.com/alligatorHandler.php?use=EaglePlugin&detail=0&searchString=" + key + "&offset=0&country=GB&language=en&source=63&et=eagle&pv=2.2";
+    }  
+	if (netget(Result, alligatorURL)
 	>= 0) {
 		
 		parts = json_GetKeyItem(Result,"parts");
@@ -526,7 +532,7 @@ dlgGridLayout {
 	dlgCell(0, 5) dlgLabel("");
 	dlgCell(0, 6) dlgLabel("");
 	dlgCell(0, 7) dlgLabel("");
-	dlgCell(0, 8) dlgLabel("<b><a href=\"http://www.samacsys.com/eagle-library/\">Help</b>");
+	dlgCell(0, 8) dlgLabel("<b><a href=\"https://www.samacsys.com/eagle-library/\">Help</b>");
 }
 dlgTabWidget {
 	dlgTabPage("Selected Part Information") {
@@ -567,8 +573,8 @@ dlgTabWidget {
 						}
 					}
 				}
-				dlgCell(1, 3) dlgLabel("<b><a href=\"http://eagle.componentsearchengine.com/register.php\">Not Registered?</b>");
-				dlgCell(1, 5) dlgLabel("<b><a href=\"http://eagle.componentsearchengine.com/resetPassword.php\">Forgot Password?</b>");
+				dlgCell(1, 3) dlgLabel("<b><a href=\"https://eagle.componentsearchengine.com/register.php\">Not Registered?</b>");
+				dlgCell(1, 5) dlgLabel("<b><a href=\"https://eagle.componentsearchengine.com/resetPassword.php\">Forgot Password?</b>");
 				//dlgCell(2, 0) dlgLabel("Library");
 			}
 			dlgGridLayout {
@@ -604,7 +610,7 @@ dlgTabWidget {
 	 dlgHBoxLayout {
 	    dlgLabel("&Search keyword(s)", 1);
 		dlgStringEdit(keyword);
-		dlgPushButton("Search") {
+		dlgPushButton("+Search") {
 			getHomePage();
 			DoSearch(keyword);
 		}
