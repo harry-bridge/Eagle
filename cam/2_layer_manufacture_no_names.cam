@@ -191,8 +191,7 @@
                     },
                     "filename_format": "%PREFIX/silkscreen_top.gto",
                     "layers": [
-                        21,
-                        25
+                        21
                     ],
                     "milling": false,
                     "name": "Silkscreen Top",
@@ -215,11 +214,56 @@
                     },
                     "filename_format": "%PREFIX/silkscreen_bottom.gbo",
                     "layers": [
-                        22,
-                        26
+                        22
                     ],
                     "milling": false,
                     "name": "Silkscreen Bottom",
+                    "polarity": "positive",
+                    "type": "gerber_layer"
+                },
+                {
+                    "advanced_options": {
+                        "mirror": false,
+                        "offset_x": 0,
+                        "offset_y": 0,
+                        "rotate": false,
+                        "upside_down": false
+                    },
+                    "board_outline": true,
+                    "config": {
+                        "file_function": "FabricationDrawing"
+                    },
+                    "filename_format": "%PREFIX/%FF_top.gm1",
+                    "layers": [
+                        21,
+                        25,
+                        113
+                    ],
+                    "milling": true,
+                    "name": "Fabrication Top",
+                    "polarity": "positive",
+                    "type": "gerber_layer"
+                },
+                {
+                    "advanced_options": {
+                        "mirror": true,
+                        "offset_x": 0,
+                        "offset_y": 0,
+                        "rotate": false,
+                        "upside_down": false
+                    },
+                    "board_outline": true,
+                    "config": {
+                        "file_function": "FabricationDrawing"
+                    },
+                    "filename_format": "%PREFIX/%FF_bottom.gm2",
+                    "layers": [
+                        22,
+                        26,
+                        162
+                    ],
+                    "milling": true,
+                    "name": "Fabrication Bottom",
                     "polarity": "positive",
                     "type": "gerber_layer"
                 }
@@ -261,12 +305,6 @@
                     "name": "Bill of Material",
                     "output_format": "csv",
                     "type": "bom"
-                },
-                {
-                    "filename_format": "PCB/PickPlace/PnP_%N_%BOARDSIDE",
-                    "name": "Pick and Place",
-                    "output_format": "csv",
-                    "type": "pick_and_place"
                 }
             ]
         },
@@ -277,7 +315,7 @@
             ]
         }
     ],
-    "timestamp": "2020-05-12T11:34:09",
+    "timestamp": "2020-05-12T11:53:35",
     "type": "EAGLE CAM job",
     "units": "metric",
     "version": "9.2.0"
