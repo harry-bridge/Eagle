@@ -1,0 +1,210 @@
+// set_title_block.ulp
+// Sets information in the title block via attributes in frames on sheets
+string titleBlockName = "A3L-LOC";
+string titleBlockLibrary = "SmartSentry Frames";
+
+string drawnBy = "";
+string projectNum = "";
+string revisionNumber = "";
+
+int currentSheetNum = 0;
+string currentSheetHeadline = "";
+
+string cmd = "";
+string s = "";
+
+void updateTitleBlock() {
+	schematic(S) {
+		S.sheets(Q) {
+			if (Q.number == currentSheetNum) {
+				sprintf(s, "DESCRIPTION %s;\n", currentSheetHeadline);
+				cmd += s;
+			}
+
+			Q.parts(P) {
+				if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
+					// if the name or the value of the part containes the word frame
+					P.instances(I) {
+						I.attributes(A) {
+							if (A.name == "REV_NUM") {
+								sprintf(s, "ATTRIBUTE %s REV_NUM '%s';\n", I.name, revisionNumber);
+								cmd += s;
+							}
+
+							if (A.name == "DRN_BY") {
+								sprintf(s, "ATTRIBUTE %s DRN_BY '%s';\n", I.name, drawnBy);
+								cmd += s;
+							}
+
+							if (A.name == "PROJECT_NUM") { 
+								sprintf(s, "ATTRIBUTE %s PROJECT_NUM '%s';\n", I.name, projectNum);
+								cmd += s;
+							}
+						}
+					}
+				}
+			}
+		} 
+	}
+}
+
+void replaceTitleBlocks() {
+	int frameX = 0;
+	int frameY = 0;
+	int frameR = 0;
+
+	// have we found any attributes in previous frames
+	int _foundAttrs = 0;
+
+	schematic(S) {
+		S.sheets(Q) {
+			Q.parts(P) {
+				if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
+					// if the name or the value of the part containes the word frame
+					P.instances(I) {
+						I.attributes(A) {
+							if (A.name == "REV_NUM" && strstr(A.value, ">REV") == -1) {
+								_foundAttrs = 1;
+								revisionNumber = A.value;
+							}
+
+							if (A.name == "DRN_BY" && strstr(A.value, ">DRN_BY") == -1) {
+								_foundAttrs = 1;
+								drawnBy = A.value;
+							}
+
+							if (A.name == "PROJECT_NUM" && strstr(A.value, ">PROJ") == -1) { 
+								_foundAttrs = 1;
+								projectNum = A.value;
+							}
+						}
+						frameX = I.x;
+						frameY = I.y;
+						frameR = I.angle;
+
+						sprintf(s, "DELETE %s ;\n", I.name);
+						cmd += s;
+
+						sprintf(s, "ADD '%s@%s' %u (%u %u);\n", titleBlockName, titleBlockLibrary, frameR, frameX, frameY);
+						cmd += s;
+					}
+				}
+			}
+		}
+	}
+
+	if (_foundAttrs == 1) {
+		updateTitleBlock();
+	} else {
+		// run iself again to set title block values after replace
+		sprintf(s, "RUN %s;\n", argv[0]);
+		cmd += s;
+	}
+}
+
+void showOptions() {
+	int _result = dlgDialog("Title Block Info") {
+		dlgVBoxLayout {
+			dlgGroup("Global attributes") {
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Drawn By");
+					dlgCell(0, 1, 0, 4) dlgStringEdit(drawnBy);
+					dlgCell(1, 0) dlgLabel("Project Number");
+					dlgCell(1, 1, 1, 4) dlgStringEdit(projectNum);
+					dlgCell(2, 0) dlgLabel("Revision Number");
+					dlgCell(2, 1, 2, 4) dlgStringEdit(revisionNumber);
+				}
+			}
+
+			dlgGroup("Sheet attributes") {
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Current sheet");
+					sprintf(s, "%u", currentSheetNum);
+					dlgCell(0, 1) dlgLabel(s);
+					dlgCell(1, 0) dlgLabel("Heading");
+					dlgCell(1, 1, 1, 4) dlgStringEdit(currentSheetHeadline);
+				}
+			}
+
+			dlgSpacing(10);
+			dlgStretch(0);
+
+			dlgHBoxLayout {
+				dlgPushButton("-&Cancel") dlgReject();
+				dlgPushButton("+&OK") dlgAccept();
+				}
+			// dlgStretch(1);
+			}
+		};
+
+	if (_result == 0) {
+		exit (0);
+	} 
+}
+
+
+output("/Users/harry/Desktop/debug.txt", "wt") {
+// entry point
+	printf("%s %s\n", argv[0], argv[1]);
+if (schematic) {
+	printf("%s %s\n", argv[0], argv[1]);
+	// replace all title blocks in the document with the default block
+	// if (strstr(argv[1], "-R") != -1) {
+	if (argv[1]) {
+		replaceTitleBlocks();
+
+	} else {
+		if (sheet) sheet(S) {
+			currentSheetHeadline = S.headline;
+			currentSheetNum = S.number;
+		}
+
+
+		int _foundFrame = 0;
+		// get intial values
+		schematic(S) {
+			S.sheets(Q) {
+				Q.parts(P) {
+					if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
+						// if the name or the value of the part containes the word frame
+						// found as least one frame across the schematic sheets
+						_foundFrame = 1;
+						P.instances(I) {
+							I.attributes(A) {
+								if (A.name == "REV_NUM" && strstr(A.value, ">REV") == -1) {
+									// if there is a REV_NUM attribute and it isnt set to the default value from the lib
+									revisionNumber = A.value;
+								} else {
+									revisionNumber = "A1";
+								}
+
+								if (A.name == "DRN_BY" && strstr(A.value, ">DRN_BY") == -1) {
+									drawnBy = A.value;
+								}
+
+								if (A.name == "PROJECT_NUM" && strstr(A.value, ">PROJ") == -1) { 
+									projectNum = A.value;
+								}
+							}
+						}
+					}
+				}
+			} 
+		}
+
+		if (_foundFrame == 0) {
+			// no frames found
+			dlgMessageBox("!No valid sheet frames found in schematic", "+&Exit");
+			exit(0);
+		}
+
+		showOptions();
+		updateTitleBlock();
+	}
+
+} else {
+	dlgMessageBox("!You can only run this ULP from a schematic", "+&Close");
+	exit(0);
+}
+}
+exit(cmd);

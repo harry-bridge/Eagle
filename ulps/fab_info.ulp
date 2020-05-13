@@ -235,7 +235,6 @@ if (board) {
 	dlgDialog("Fabrication info") {
 		dlgVBoxLayout {
 			dlgGroup("Dimensions:") {
-	 			dlgStretch(0);
 				dlgGridLayout {
 					dlgCell(0, 0) dlgLabel("Board Width:");
 					sprintf(s, "%.2fmm", u2mm(boardWidth));
@@ -250,11 +249,11 @@ if (board) {
 					dlgCell(1, 2)  dlgLabel(s);
 				}
 			}
+			dlgStretch(0);
 
 			dlgSpacing(10);
 			
 			dlgGroup("Placements:") {
-				dlgStretch(0);
 				dlgGridLayout {
 					dlgCell(0, 0) dlgLabel("Sides of SMD placements:");
 					sprintf(s, "%u", numSmdSides);
@@ -282,10 +281,10 @@ if (board) {
 				}
 			}
 
+			dlgStretch(0);
 			dlgSpacing(10);
 			
 			dlgGroup("Stackup:") {
-				dlgStretch(0);
 				dlgGridLayout {
 					dlgCell(0, 0) dlgLabel("Copper layers:");
 					sprintf(s, "%u", numCopperLayers);
@@ -313,10 +312,10 @@ if (board) {
 				}
 			}
 
+			dlgStretch(0);
 			dlgSpacing(10);
 
 			dlgGroup("Extra info:") {
-				dlgStretch(0);
 				dlgGridLayout {
 					dlgCell(0, 0) dlgLabel("Number of top SMD placements:");
 					sprintf(s, "%u", numSmdTopPlacements);
@@ -341,6 +340,7 @@ if (board) {
 				}
 			}
 
+			dlgStretch(0);
 			dlgSpacing(10);
 			dlgPushButton("+Done") dlgAccept();
 		}
