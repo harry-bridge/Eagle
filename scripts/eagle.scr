@@ -24,17 +24,24 @@ GRID on;
 MENU '[Volumes/Sidecar/EAGLE/ulps/icons/samacsys.svg] SamacSys : Run samacsys.ulp;|\
 [Volumes/Sidecar/EAGLE/ulps/icons/fabrication.svg] Fabrication {\
 														Fabrication Info : Run fab_info;|\
-														Add Revision : Run samacsys.ulp;|\
-														---|\
-														Add Title Blocks : Run set_title_block -replace;|\
 													}\
+[Volumes/Sidecar/EAGLE/ulps/icons/utilities.svg] Utilities {\
+														Highlight NP : Run highlight_np 1;|\
+}\
 ';
+
+# Set contex menu
+SET context;
+SET CONTEXT Element 'Select Same Package' 'run select_same_package.ulp';
+SET CONTEXT Wire 'Select Same Net' 'run net_utils.ulp -s';
+SET CONTEXT Wire 'Change Width Same Net' 'run net_utils.ulp -w';
+SET CONTEXT Wire 'Change Layer Same Net' 'run net_utils.ulp -c';
 
 DISPLAY = 'Preset_Top' None 1 17 18 19 20 21 23 25 39 41 43 49 51;
 DISPLAY = 'Preset_Bottom' None 16 17 18 19 20 22 24 26 40 42 43 49 52 102;
 DISPLAY = 'Preset_Standard' None 1 16 17 18 19 20 21 22 23 24 25 26 39 40 41 42 43 46 48 49 51 52 101;
 DISPLAY = 'Preset_Inner' None 2 3 4 5 6 7 8 9 10 11 12 13 14 15 17 18 19 20 21 22 23 24 25 26 39 40 41 42 43 48 49 51 52;
-#DISPLAY = 'Assembly_Top' None;
+DISPLAY = 'Preset_Assm_DWG' None 17 20 21 22 25 26 46 48 51 52 101 102;
 #DISPLAY = 'Assembly_Bottom' None;
 
 DISPLAY Preset_Standard # Set layer display to standard layers
@@ -66,8 +73,21 @@ SET fill_layer 101 4; # Set tNP view layer to thick diag fill
 SET fill_layer 102 4; # Set bNP view layer to thick diag fill
 
 # Assign shortcuts
+# C for ctrl
+# S for shift
+# A for alt
+# M for cmd (mac os only)
+
 Assign F8 'Ratsnest';
-Assign AF8 'Ripup @;';
+Assign A+F8 'Ripup @;';
+Assign M+R 'ROUTE';
+Assign C+R 'ROUTE';
+Assign M+D 'DRC;';		# DRC immediatly
+Assign M+S+D 'DRC';		# DRC options
+Assign M+0 'WINDOW FIT';
+Assign C+0 'WINDOW FIT';
+Assign M+9 'WINDOW LAST';
+Assign C+9 'WINDOW LAST';
 
 RUN set_used_layers;
 
@@ -82,13 +102,17 @@ LAYER 91; # Default to being on layer 91
 	
 Grid Default;
 Change Width 0.006in;
+
 MENU '[Volumes/Sidecar/EAGLE/ulps/icons/samacsys.svg] SamacSys : Run samacsys.ulp;|\
 [Volumes/Sidecar/EAGLE/ulps/icons/frame.svg] Frame {\
 														Edit Title : Run set_title_block.ulp;|\
 														Add Revision : Run samacsys.ulp;|\
 														---|\
-														Add Title Blocks : Run set_title_block -replace;|\
+														Add Title Blocks : Run set_title_block -r;|\
 													}\
+[Volumes/Sidecar/EAGLE/ulps/icons/utilities.svg] Utilities {\
+														Highlight NP : Run highlight_np 1;|\
+}\
 ';
 
 DISPLAY = 'Preset_Standard' None 88 89 90 91 92 93 94 95 96 97 98 101;
@@ -120,13 +144,23 @@ GRID = Metric mm 0.25 lines on alt mm 0.125;
 GRID = Inch_MM mm 1.27 lines on alt mm 0.127;
 Grid Inch_MM;
 
+MENU '[Volumes/Sidecar/EAGLE/ulps/icons/package.svg] Package {\
+														Gen SMD CAE : Run genpkg_cae.ulp;|\
+														Gen QFP : Run genpkg_qfp.ulp;|\
+														Gen SOIC : Run genpkg_soic.ulp;|\
+													}\
+[Volumes/Sidecar/EAGLE/ulps/icons/utilities.svg] Utilities {\
+														tDocu Gen : Run tdocu_gen.ulp;|\
+}\
+';
+
 # Get rid of the extra internal layers
 # Set used_Layers 1 16 17 20 21 22 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52; 
 RUN set_used_layers;
 
 DISPLAY = 'Preset_Top' None 1 17 20 21 23 25 29 39 41 43 49 51;
 DISPLAY = 'Preset_Bottom' None 16 17 20 22 24 26 30 40 42 43 49 52;
-DISPLAY = 'Preset_Standard' None 1 16 17 20 21 22 23 24 25 26 27 28 29 30 39 40 41 42 43 48 49 51 52;
+DISPLAY = 'Preset_Standard' None 1 16 17 20 21 22 23 24 25 26 27 28 29 30 31 32 39 40 41 42 43 48 49 51 52;
 
 # Set default layer colours
 SET color_layer 48 5;  # Set Document to mellow yellow
