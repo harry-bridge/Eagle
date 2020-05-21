@@ -1,0 +1,43 @@
+// select_same_package.ulp
+// selects all instances of the same footprint in a board
+
+int groupElements = 0;
+
+string selectedFootprint = "";
+
+string cmd="";
+string s="";
+
+// entry point
+if (board) {
+	// in the board editor
+	board(B) {
+		B.elements(E) {
+			if (ingroup(E)) {
+				selectedFootprint = E.package.name;
+				groupElements ++;
+			}
+		}
+
+		// check that the user has selected only one part in the editor
+		if (groupElements == 0) {
+			dlgMessageBox("!Please select one part");
+		} else if (groupElements > 1) {
+			dlgMessageBox("!Please select only one part");
+		}
+
+		B.elements(E) {
+			if (strstr(E.package.name, selectedFootprint) != -1) {
+				if (!ingroup(E)) {
+					setgroup(E);
+				}
+			}
+		}
+		
+	}
+
+} else if (schematic) {
+	
+} else {
+	dlgMessageBox("!This ULP must be run from a board or a schematic", "+&Close");
+}

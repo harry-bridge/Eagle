@@ -1,0 +1,230 @@
+// net_utils.ulp
+// board net utilities
+
+// -s to select all wire in the same net
+// -w to change the width of all selected wires to the same thing
+// -c to change the layer of the net
+
+int groupElements = 0;
+int foundElement = 0;
+
+int foundWires = 0;
+int foundVias = 0;
+
+UL_SIGNAL selectedSignal;
+int selectedWireWidth = 0;
+int selectedWireLayer = 0;
+
+real userSignalWidth = 0;
+
+string cmd = "";
+string s = "";
+
+string layerNames[];
+int layerNumbers[];
+
+
+int inArgv(string toFind) {
+	for (int i = 1; i <= argc; i++) {
+		if (strstr(argv[i], toFind) != -1) {
+			return 1;
+		}
+	}
+
+	return 0;
+}
+
+string layerToName(int layerIndex) {
+	board(B) {
+		B.layers(L) {
+			if (L.number == layerIndex) {
+				return L.name;
+			}
+		}
+	}
+
+	return "";
+}
+
+void buildUsedLayersArray() {
+	int _currentPtr = 0;
+
+	board(B) {
+		B.layers(L) {
+			if (L.number >= LAYER_TOP && L.number <= LAYER_BOTTOM && L.used) {
+				layerNames[_currentPtr] = L.name;
+				layerNumbers[_currentPtr] = L.number;
+				_currentPtr ++;
+			}
+		}
+	}
+}
+
+// entrypoint
+if (board) {
+	board(B) {
+		B.signals(S) {
+			foundElement = 0;
+
+			S.wires(W) {
+				if (ingroup(W)) {
+					foundElement = 1;
+					selectedWireWidth = W.width;
+					selectedWireLayer = W.layer;
+				}
+			}
+
+			S.vias(V) {
+				if (ingroup(V)) {
+					foundElement = 1;
+					foundVias ++;
+				}
+			}
+
+			if (foundElement) {
+				selectedSignal = S;
+				groupElements ++;
+			}
+		}
+
+		// check that the user has selected only one part in the editor
+		if (groupElements == 0) {
+			dlgMessageBox("!Please select one wire or via", "+&Close");
+			exit(1);
+		} else if (groupElements > 1) {
+			dlgMessageBox("!Please select only one wire or via", "+&Close");
+			exit(1);
+		}
+
+		if (inArgv("-w") || inArgv("-c")) {
+			int _currentRow = 0;
+			int _defaultWidth = selectedSignal.class.width;
+			userSignalWidth = u2mm(_defaultWidth);
+
+			int result = dlgDialog("Change Net Width") {
+				dlgVBoxLayout {
+						dlgGroup("Selected Signal") {
+							dlgGridLayout {
+								dlgCell(_currentRow, 0) dlgLabel("Net Name:");
+								sprintf(s, "%s", selectedSignal.name);
+								dlgCell(_currentRow, 1) dlgLabel(s);
+								_currentRow ++;
+
+								dlgCell(_currentRow, 0) dlgLabel("Net Class:");
+								sprintf(s, "%s", selectedSignal.class.name);
+								dlgCell(_currentRow, 1) dlgLabel(s);
+								_currentRow ++;
+
+								dlgCell(_currentRow, 0) dlgLabel("Net Class Width:");
+								sprintf(s, "%.2fmm", u2mm(_defaultWidth));
+								dlgCell(_currentRow, 1) dlgLabel(s);
+								sprintf(s, "%.3fin", u2inch(_defaultWidth));
+								dlgCell(_currentRow, 2) dlgLabel(s);
+								_currentRow ++;
+
+								if (selectedWireWidth > 0) {
+									dlgCell(_currentRow, 0) dlgLabel("Wire Width:");
+									sprintf(s, "%.2fmm", u2mm(selectedWireWidth));
+									dlgCell(_currentRow, 1) dlgLabel(s);
+									sprintf(s, "%.3fin", u2inch(selectedWireWidth));
+									dlgCell(_currentRow, 2) dlgLabel(s);
+									_currentRow ++;
+								}
+
+								if (inArgv("-c")) {
+									dlgCell(_currentRow, 0) dlgLabel("Net layer:");
+									sprintf(s, "%u (%s)", selectedWireLayer, layerToName(selectedWireLayer));
+									dlgCell(_currentRow, 1) dlgLabel(s);
+									_currentRow++;
+								}
+							}
+						}
+
+						// dlgStretch(0);
+						// dlgGroup("Info") {
+						// 	dlgGridLayout {
+						// 		dlgCell(0, 0) dlgLabel("Wires in group:");
+						// 		sprintf(s, "%u", foundWires);
+						// 		dlgCell(0, 1) dlgLabel(s);
+
+						// 		dlgCell(1, 0) dlgLabel("Vias in group:");
+						// 		sprintf(s, "%u", foundVias);
+						// 		dlgCell(1, 1) dlgLabel(s);
+						// 	}
+						// }
+
+						if (inArgv("-w")) {
+							dlgStretch(0);
+							dlgGroup("Change Width") {
+								dlgGridLayout {
+									dlgCell(0, 0) dlgLabel("Width (mm):");
+									dlgCell(0, 1) dlgRealEdit(userSignalWidth, 0.0, 99.0);
+								}
+							}
+						}
+
+						if (inArgv("-c")) {
+							buildUsedLayersArray();
+							selectedWireLayer --;
+							dlgStretch(0);
+							dlgGroup("Change Layer") {
+								dlgGridLayout {
+									dlgCell(0, 0) dlgLabel("Layer:");
+									dlgCell(0, 1) dlgComboBox(layerNames, selectedWireLayer);
+								}
+							}
+						}
+
+						dlgStretch(0);
+						dlgHBoxLayout {
+							dlgPushButton("-&Cancel") dlgReject();
+							dlgSpacing(30);
+							dlgPushButton("+&Change") dlgAccept();
+						}
+					}
+				};
+
+			if (!result) {
+				exit(0);
+			}
+		}
+
+		
+		
+		B.signals(S) {
+			if (strstr(S.name, selectedSignal.name) != -1 && strlen(S.name) == strlen(selectedSignal.name)) {
+				S.wires(W) {
+					real _midX = u2mm((W.x1 + W.x2) / 2);
+					real _midY = u2mm((W.y1 + W.y2) / 2);
+
+					if (inArgv("-s")) {
+						if (!ingroup(W)) {
+							setgroup(W);
+							
+						}
+					}
+
+					if (inArgv("-w")) {
+						sprintf(s, "CHANGE width %f (%f %f)\n;", userSignalWidth, _midX, _midY);
+						cmd += s;
+					}
+
+					if (inArgv("-c")) {
+						sprintf(s, "CHANGE layer %s (%f %f)\n;", layerNames[selectedWireLayer], _midX, _midY);
+						cmd += s;
+					}
+				}
+			}
+		}
+
+		
+	}
+
+
+
+} else {
+	dlgMessageBox("!You can only run this ULP from the board editor", "+&Close");
+	exit(1);
+}
+
+exit(cmd);
