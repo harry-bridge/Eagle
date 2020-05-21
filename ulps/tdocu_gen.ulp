@@ -24,6 +24,9 @@ int smdXmin = INT_MAX;
 int smdYmax = xmax;
 int smdYmin = xmin;
 
+int packageOriginX = 0;
+int packageOriginY = 0;
+
 int normalDx = 0;
 int normalDy = 0;
 
@@ -41,7 +44,14 @@ int userPackageType = 0;
 int userClearTdocu = 1;
 // convert checkbox value to line / polygon
 int userFilledSmds = 0;
+// Whether to generate any docu for smd pads
+int userGenSmds = 1;
 int userFilledCenterPad = 1;
+int userGenPackageOutline = 1;
+int userGenPthOutline = 0;
+
+real userPackageWidth = 0;
+real userPackageHeight = 0;
 
 real smdOutlineYmax = 0;
 real smdOutlineYmin = 0;
@@ -66,6 +76,8 @@ void resetMaxBounds() {
 }
 
 void deleteLayerContents(int Layer) {
+	// need to reset the selection filter to be able to delete layer contents
+	cmd += "SET selectlayers all;\n";
 	sprintf(s, "DISPLAY None %u;\n", Layer);
 	cmd += s;
 	cmd += "GROUP all;\n";
@@ -105,6 +117,7 @@ void genTdocu() {
 		// loop though smds and generate tdocu
 		P.contacts(C) {
 			// first find the bounds of the package
+			// takes the center x and y of the smd
 			if (C.smd && C.smd.layer == topLayer) {
 				if (C.smd.x > xmax) xmax = C.smd.x;
 				if (C.smd.x < xmin) xmin = C.smd.x;
@@ -122,11 +135,14 @@ void genTdocu() {
 				int _tempBound = 0;
 				if (C.smd.x == xmax) {
 					// different padding option for leadless or leaded packages
+					// Initially set padding to half the x length of the pad
 					_pad = normalDx / 2;
 					if (userPackageType == packageTypeLeadless) {
+						// if the pad is on it's side and we're making a leadless package then set the padding to 0
 						if (normalDx > normalDy) _pad = 0;
 					}
 
+					// if the pad is on it's side take away the padding value
 					if (normalDx > normalDy) {
 						innerXmax = C.smd.x - _pad;
 						smdXmax = C.smd.x - normalDx / 2;
@@ -186,20 +202,35 @@ void genTdocu() {
 			}
 		}
 
-		// Make inner package smd bounds
-		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmax), u2mm(innerXmax), u2mm(innerYmax));
-		cmd += s;
-		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmin));
-		cmd += s;
-		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmin), u2mm(innerYmax));
-		cmd += s;
-		sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmax), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmax));
-		cmd += s;
+		packageOriginY = (innerYmin + innerYmax) / 2;
+		packageOriginX = (innerXmin + innerXmax) / 2;
+
+		if (userPackageWidth && userPackageType == packageTypeLeadless) {
+			innerXmin = packageOriginX - mm2u(userPackageWidth / 2);
+			innerXmax = packageOriginX + mm2u(userPackageWidth / 2);
+		}
+
+		if (userPackageHeight && userPackageType == packageTypeLeadless) {
+			innerYmin = packageOriginY - mm2u(userPackageHeight / 2);
+			innerYmax = packageOriginY + mm2u(userPackageHeight / 2);
+		}
+
+		if (userGenPackageOutline) {
+			// Make package bounds
+			sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmax), u2mm(innerXmax), u2mm(innerYmax));
+			cmd += s;
+			sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmin));
+			cmd += s;
+			sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmin), u2mm(innerYmin), u2mm(innerXmin), u2mm(innerYmax));
+			cmd += s;
+			sprintf(s, "LINE %f (%.4f %.4f) (%.4f %.4f);\n", lineWidth, u2mm(innerXmax), u2mm(innerYmin), u2mm(innerXmax), u2mm(innerYmax));
+			cmd += s;
+		}
 
 		P.contacts(C) {
 			int _centerPad = 0;
 			// Only draw pads on the outside of packages
-			if (C.smd && C.smd.layer == topLayer) {
+			if (C.smd && C.smd.layer == topLayer && userGenSmds) {
 				normaliseDxDy(C.smd);
 
 				if (C.smd.y >= smdYmax && smdXmin < C.smd.x < smdXmax) {
@@ -348,10 +379,11 @@ if (package) {
 		dlgVBoxLayout {
 			dlgHBoxLayout {
 				dlgStretch(0);
-				dlgGroup("Package Style") {
+				dlgGroup("SMD Style") {
 					dlgGridLayout {
-						dlgCell(0, 0)  dlgRadioButton("Leaded", userPackageType);
-						dlgCell(1, 0)  dlgRadioButton("Leadless", userPackageType);
+						dlgCell(0, 0) dlgRadioButton("Leaded", userPackageType);
+						dlgCell(1, 0) dlgRadioButton("Leadless", userPackageType);
+						dlgCell(2, 0) dlgCheckBox("Generate SMD outlines", userGenSmds);
 						
 						// 30 pixels fixed distance
 						// dlgCell(1, 6) { dlgSpacing(30); dlgCheckBox("R&otate", rotate); };
@@ -362,14 +394,33 @@ if (package) {
 				}
 				
 				dlgSpacing(30);
-				dlgGroup("Other Options") {
-					dlgStretch(0);
+				dlgGroup("PTH Style") {
 					dlgGridLayout {
-						dlgCell(0, 0) dlgCheckBox("Clear tDocu layer first", userClearTdocu);
-						dlgCell(1, 0) dlgCheckBox("Filled smd polygons", userFilledSmds);
-						dlgCell(2, 0) dlgCheckBox("Filled center pad", userFilledCenterPad);
+						dlgCell(0, 0) dlgCheckBox("Generate pad outline", userGenPthOutline);
 					}
+					dlgStretch(0);
 				}
+				
+			}
+
+			dlgGroup("Other Options") {
+				dlgGridLayout {
+					dlgCell(0, 0) dlgCheckBox("Clear tDocu layer first", userClearTdocu);
+					dlgCell(1, 0) dlgCheckBox("Filled smd polygons", userFilledSmds);
+					dlgCell(2, 0) dlgCheckBox("Filled center pad", userFilledCenterPad);
+					dlgCell(3, 0) dlgCheckBox("Generate package outline", userGenPackageOutline);
+				}
+				dlgStretch(0);
+			}
+
+			dlgGroup("Optional package size") {
+				dlgGridLayout {
+					dlgCell(0, 0) dlgLabel("Width (mm)");
+					dlgCell(1, 0) dlgRealEdit(userPackageWidth);
+					dlgCell(0, 1) dlgLabel("Height (mm)");
+					dlgCell(1, 1) dlgRealEdit(userPackageHeight);
+				}
+				dlgStretch(0);
 			}
 
 			dlgStretch(0);
@@ -398,7 +449,7 @@ if (package) {
 
 	cmd += "GRID mm;\n";
 
-	if (userClearTdocu) {
+	if (userClearTdocu == 1) {
 		// Only clear tDocu contents if user wants to 
 		deleteLayerContents(tDocuLayer);
 	}
