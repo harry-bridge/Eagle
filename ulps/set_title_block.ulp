@@ -5,7 +5,7 @@ string titleBlockLibrary = "SmartSentry Frames";
 
 string drawnBy = "";
 string projectNum = "";
-string revisionNumber = "";
+string revisionNumber = "A1";
 
 int currentSheetNum = 0;
 string currentSheetHeadline = "";
@@ -13,93 +13,161 @@ string currentSheetHeadline = "";
 string cmd = "";
 string s = "";
 
-void updateTitleBlock() {
-	schematic(S) {
-		S.sheets(Q) {
-			if (Q.number == currentSheetNum) {
-				sprintf(s, "DESCRIPTION %s;\n", currentSheetHeadline);
-				cmd += s;
-			}
+// Get current title block info for the current sheet
+int updateTypeGet = 0;
+// Update all title blocks in the document with the same info
+int updateTypeUpdate = 1;
+// Replace all the title blocks in the document / add them if necessary
+int updateTypeReplace = 2;
 
-			Q.parts(P) {
-				if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
-					// if the name or the value of the part containes the word frame
-					P.instances(I) {
-						I.attributes(A) {
-							if (A.name == "REV_NUM") {
-								sprintf(s, "ATTRIBUTE %s REV_NUM '%s';\n", I.name, revisionNumber);
-								cmd += s;
-							}
 
-							if (A.name == "DRN_BY") {
-								sprintf(s, "ATTRIBUTE %s DRN_BY '%s';\n", I.name, drawnBy);
-								cmd += s;
-							}
+// errors returned from below function
+int noError = 0;
+int errorNoFrame = 1;
 
-							if (A.name == "PROJECT_NUM") { 
-								sprintf(s, "ATTRIBUTE %s PROJECT_NUM '%s';\n", I.name, projectNum);
-								cmd += s;
-							}
-						}
-					}
-				}
-			}
-		} 
-	}
-}
+int generatedFrameCount = 0;
 
-void replaceTitleBlocks() {
-	int frameX = 0;
-	int frameY = 0;
-	int frameR = 0;
-
-	// have we found any attributes in previous frames
+int updateTitleBlockAttrs(int updateType, UL_INSTANCE I, int _sheetNum) {
 	int _foundAttrs = 0;
 
-	schematic(S) {
-		S.sheets(Q) {
-			Q.parts(P) {
-				if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
-					// if the name or the value of the part containes the word frame
-					P.instances(I) {
-						I.attributes(A) {
-							if (A.name == "REV_NUM" && strstr(A.value, ">REV") == -1) {
-								_foundAttrs = 1;
-								revisionNumber = A.value;
-							}
+	I.attributes(A) {
+		if (A.name == "REV_NUM") {
+			
+			if (((updateType == updateTypeGet && _sheetNum == currentSheetNum) || updateType == updateTypeReplace)) {
+				if (strstr(A.value, ">REV") == -1) {
+					_foundAttrs = 1;
+					revisionNumber = A.value;
+				} 
+			}	
 
-							if (A.name == "DRN_BY" && strstr(A.value, ">DRN_BY") == -1) {
-								_foundAttrs = 1;
-								drawnBy = A.value;
-							}
+			// Apply rev num to all sheets
+			if (updateType == updateTypeUpdate) {
+				sprintf(s, "ATTRIBUTE %s REV_NUM '%s';\n", I.name, revisionNumber);
+				cmd += s;
+			}
+		}		
 
-							if (A.name == "PROJECT_NUM" && strstr(A.value, ">PROJ") == -1) { 
-								_foundAttrs = 1;
-								projectNum = A.value;
-							}
-						}
-						frameX = I.x;
-						frameY = I.y;
-						frameR = I.angle;
+		if (A.name == "DRN_BY") {
+			if (((updateType == updateTypeGet && _sheetNum == currentSheetNum) || updateType == updateTypeReplace) && strstr(A.value, ">DRN_BY") == -1) {
+				drawnBy = A.value;
+				_foundAttrs = 1;
+			} 
 
-						sprintf(s, "DELETE %s ;\n", I.name);
-						cmd += s;
+			// Apply to only current sheet being edited
+			if (updateType == updateTypeUpdate && _sheetNum == currentSheetNum) {
+				sprintf(s, "ATTRIBUTE %s DRN_BY '%s';\n", I.name, drawnBy);
+				cmd += s;
+			}
+		}
 
-						sprintf(s, "ADD '%s@%s' %u (%u %u);\n", titleBlockName, titleBlockLibrary, frameR, frameX, frameY);
-						cmd += s;
-					}
-				}
+		if (A.name == "PROJECT_NUM") { 
+			if (((updateType == updateTypeGet && _sheetNum == currentSheetNum) || updateType == updateTypeReplace) && strstr(A.value, ">PROJ") == -1) {
+				projectNum = A.value;
+				_foundAttrs = 1;
+			} 
+
+			// Apply to all sheets
+			if (updateType == updateTypeUpdate) {
+				sprintf(s, "ATTRIBUTE %s PROJECT_NUM '%s';\n", I.name, projectNum);
+				cmd += s;
 			}
 		}
 	}
 
-	if (_foundAttrs == 1) {
-		updateTitleBlock();
-	} else {
-		// run iself again to set title block values after replace
-		sprintf(s, "RUN %s;\n", argv[0]);
-		cmd += s;
+	return _foundAttrs;
+}
+
+int isFrame(UL_PART _part) {
+	if (strstr(_part.name, "FRAME") != -1 || strstr(_part.value, "FRAME") != -1) {
+		return 1;
 	}
+
+	return 0;
+}
+
+int updateTitleBlocks(int updateType) {
+	int frameX = 0;
+	int frameY = 0;
+	int frameR = 0;
+	string frameName = "";
+
+	// have we found any attributes in previous frames
+	int _foundAttrs = 0;
+	int _foundFrame = 0;
+
+	schematic(S) {
+		S.sheets(Q) {
+			// Apply headline only to current sheet
+			if (Q.number == currentSheetNum && updateType == updateTypeUpdate) {
+				sprintf(s, "DESCRIPTION %s;\n", currentSheetHeadline);
+				cmd += s;
+			}
+
+			// edit the sheet with the frame on it
+			sprintf(s, "EDIT .s%u;\n", Q.number);
+			cmd += s;
+
+			Q.parts(P) {
+				if (isFrame(P)) {
+					// Found a frame on a sheet
+					if ((updateType == updateTypeGet && Q.number == currentSheetNum) || updateType == updateTypeReplace) {
+						_foundFrame = 1;
+						printf("Found frame\n");
+					}
+  					
+					// if the name or the value of the part containes the word frame
+					P.instances(I) {
+						updateTitleBlockAttrs(updateType, I, Q.number);
+
+						// Store the found frame
+						frameName = I.name;
+						frameX = I.x;
+						frameY = I.y;
+						frameR = I.angle;
+					}
+				}
+			}
+
+			if (updateType == updateTypeReplace) {
+				if (_foundFrame == 1) {
+					// only delete the previous frame if we have found one, otherwise could delete a random object at 0, 0
+					sprintf(s, "DELETE %s;\n", frameName);
+					cmd += s;
+				} 
+
+				sprintf(s, "ADD '%s@%s' R%u (%u %u);\n", titleBlockName, titleBlockLibrary, frameR, frameX, frameY);
+				cmd += s;
+
+				// if there was previously a frame on the page, add it's previous attributes back in
+				if (_foundFrame == 1) {
+					Q.parts(P) {
+						if (isFrame(P)) {
+							P.instances(I) {
+								// pass current sheet number to attr upate to make it upate the drn_by attr on all pages
+								updateTitleBlockAttrs(updateTypeUpdate, I, currentSheetNum);
+							}
+						}
+					}
+				} else {
+					generatedFrameCount ++;
+				}
+
+			}
+
+			if (_foundFrame == 0 && updateType == updateTypeGet && Q.number == currentSheetNum) {
+				// no frames found
+				return errorNoFrame;
+			}
+
+			// next page, no found frames
+			_foundFrame = 0;
+		}
+	}
+
+	sprintf(s, "EDIT .s%u;\n", currentSheetNum);
+	cmd += s;
+
+	return noError;
 }
 
 void showOptions() {
@@ -142,64 +210,76 @@ void showOptions() {
 	} 
 }
 
-
+// springf(s, "%s/debug.txt", EAGLE_HOME);
 output("/Users/harry/Desktop/debug.txt", "wt") {
 // entry point
-	printf("%s %s\n", argv[0], argv[1]);
+	// printf("%s %s\n", argv[0], argv[1]);	
 if (schematic) {
-	printf("%s %s\n", argv[0], argv[1]);
-	// replace all title blocks in the document with the default block
-	// if (strstr(argv[1], "-R") != -1) {
-	if (argv[1]) {
-		replaceTitleBlocks();
+	int ret = 0;
 
-	} else {
-		if (sheet) sheet(S) {
-			currentSheetHeadline = S.headline;
-			currentSheetNum = S.number;
-		}
+	schematic(S) {
+		sheet(SH) currentSheetNum = SH.number;
+		sheet(SH) currentSheetHeadline = SH.headline;
+	}
 
+	printf("Current sheet: %u\n", currentSheetNum);
+	printf("Current sheet headline: %s\n", currentSheetHeadline);
 
-		int _foundFrame = 0;
-		// get intial values
-		schematic(S) {
-			S.sheets(Q) {
-				Q.parts(P) {
-					if (strstr(P.name, "FRAME") != -1 || strstr(P.value, "FRAME") != -1) {
-						// if the name or the value of the part containes the word frame
-						// found as least one frame across the schematic sheets
-						_foundFrame = 1;
+	if (strstr(argv[1], "-r") != -1) {
+		// replaceTitleBlocks();
+		updateTitleBlocks(updateTypeReplace);
+
+		sprintf(s, "RUN %s -u;\n", argv[0]);
+		cmd += s;
+
+		string plural = "";
+		if (generatedFrameCount != 1) plural = "s";
+
+		sprintf(s, ";Adding %u new title block%s.\nCheck new title block%s.", generatedFrameCount, plural, plural);
+		dlgMessageBox(s, "+&Ok");
+
+	} else if (strstr(argv[1], "-u") != -1) {
+		int _actualCurrentSheet = currentSheetNum;
+
+		schematic(SC) {
+			SC.sheets(S) {
+				S.parts(P) {
+					if (isFrame(P)) {
 						P.instances(I) {
-							I.attributes(A) {
-								if (A.name == "REV_NUM" && strstr(A.value, ">REV") == -1) {
-									// if there is a REV_NUM attribute and it isnt set to the default value from the lib
-									revisionNumber = A.value;
-								} else {
-									revisionNumber = "A1";
-								}
-
-								if (A.name == "DRN_BY" && strstr(A.value, ">DRN_BY") == -1) {
-									drawnBy = A.value;
-								}
-
-								if (A.name == "PROJECT_NUM" && strstr(A.value, ">PROJ") == -1) { 
-									projectNum = A.value;
-								}
+							// pass current sheet number to attr upate to make it upate the drn_by attr on all pages
+							currentSheetNum = S.number;
+							// edit the sheet with the frame on it
+							sprintf(s, "EDIT .s%u;\n", S.number);
+							cmd += s;
+							if (updateTitleBlockAttrs(updateTypeGet, I, S.number) == 0) {
+								// found a new title block on a sheet, set the drn_by to default value
+								drawnBy = ">DRN_BY";
 							}
+
+							updateTitleBlockAttrs(updateTypeUpdate, I, S.number);
 						}
 					}
 				}
-			} 
+			}
 		}
 
-		if (_foundFrame == 0) {
-			// no frames found
-			dlgMessageBox("!No valid sheet frames found in schematic", "+&Exit");
-			exit(0);
-		}
+		sprintf(s, "EDIT .s%u;\n", _actualCurrentSheet);
+		cmd += s;
 
+	} else {
+		ret = updateTitleBlocks(updateTypeGet);
+
+		if (ret == errorNoFrame) {
+			if (dlgMessageBox("!No valid frames found on current sheet.\nDo you want to add one?", "-&Exit", "+&Yes") == 1) {
+				cmd = "";
+				updateTitleBlocks(updateTypeReplace);
+			} else {
+				exit(0);
+			}
+		}
+		
 		showOptions();
-		updateTitleBlock();
+		updateTitleBlocks(updateTypeUpdate);
 	}
 
 } else {
