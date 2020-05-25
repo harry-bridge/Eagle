@@ -24,6 +24,9 @@ real schematicLineWidth = 0.03;
 // How much to add to the x,y of the start point in the scematic lines
 real schematicLineOvershoot = 0.03;
 
+// Current sheet that the editor is on
+int currentSheetNum = 0;
+
 int xmax = INT_MIN;
 int xmin = INT_MAX;
 int ymax = xmax;
@@ -269,7 +272,7 @@ void buildSchematicCommand() {
 	cmd += "GRID last;\n";
 }
 
-output("/Users/harry/Desktop/debug.txt", "wt") {
+// output("/Users/harry/Desktop/debug.txt", "wt") {
 // script entry point
 if (board) {
 	buildBoardCommand();
@@ -288,7 +291,13 @@ if (board) {
 	
 
 } else if (schematic) {
+	schematic(S) {
+		sheet(SH) currentSheetNum = SH.number;
+	}
+
 	buildSchematicCommand();
+	sprintf(s, "EDIT .s%u;\n", currentSheetNum);
+	cmd += s;
 	// cmd += "EDIT .brd;\n";
 	// buildBoardCommand();
 	// cmd += "EDIT .sch;\n";
@@ -313,4 +322,4 @@ if (board) {
 		cmd += "Edit .sch;\n";
 	}
 }
-}
+// }
