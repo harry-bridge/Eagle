@@ -1,0 +1,378 @@
+// library_nav.ulp
+// Navigate through library when editing parts
+// Allows users to go forward and back in the parts that they have been editing
+
+// Arguments:
+// -o for new file open
+// -b to navigate back
+// -f to navigate forward
+
+// if we are editing a symbol offer to navigate back to a used device set
+// if in.a package offer to navigate back to a used device set
+
+int debug = 1;
+//string debugLocation = EAGLE_HOME + '/' + "debug.txt";
+string debugLocation = "/Users/harry/Desktop/debug.txt";
+string cmd = "";
+string s = "";
+
+string name = "";
+
+// string found = "";
+string foundDevicsets[];
+int foundDevicesetPtr = 0;
+
+int userSelectedDeviceset = 0;
+
+// first row - current place in navigation
+// other rows - library, package / symbol name, 
+string fileLocation = EAGLE_DIR + '/' + "library_nav.csv";
+
+int maxNavItems = 3;
+string navigateArray[];
+int navigateArrayLen = 0;
+int currentNavLocation = 1;
+
+void clearDebugLog() {
+    output(debugLocation, "wt") {
+    }
+}
+
+void debugLog(string text) {
+    if (debug) {
+        output(debugLocation, "at") {
+            printf(text);
+        }
+    }
+}
+
+void parseNavigateFile() {
+	string _lineSplit[];
+	string _tempArray[];
+	debugLog("Parsing navigation file\n");
+
+	navigateArrayLen = fileread(_tempArray, fileLocation);
+    sprintf(s, "Read nav array len: %u\n", navigateArrayLen);
+    debugLog(s);
+
+	sprintf(s, "Read nav array:\n%s\n", strjoin(_tempArray, '\n'));
+    debugLog(s);
+
+	if (navigateArrayLen > 0) {
+		for (int i = 0; i < navigateArrayLen; i ++) {
+			if (i == 0) {
+				// First number is our current location in the nav array
+				strsplit(_lineSplit, _tempArray[i], ',');
+				currentNavLocation = strtol(_lineSplit[1]);
+			} else {
+			    navigateArray[i-1] = _tempArray[i];
+			}
+		}
+	}
+
+	// First line in file is current location, so remove one from the array len to reflect the actual len
+	navigateArrayLen --;
+
+	sprintf(s, "parsed nav array:\n%s\n", strjoin(navigateArray, '\n'));
+	debugLog(s);
+}
+
+void writeNavigateFile() {
+    debugLog("write nav file\n");
+//    sprintf(s, "Nav file location: %s\n", fileLocation);
+//    debugLog(s);
+    // reset file errors
+    fileerror();
+    output(fileLocation, "wt") {
+//    output(fileLocation, "wt") {
+        // Write the navigation file
+        printf("current_location,%u,\n", currentNavLocation);
+        printf("%s", strjoin(navigateArray, '\n'));
+//        for (int i = 0; i >= navigateArrayLen; i++) {
+//              printf("%s\n", navigateArray[i]);
+//        }
+    }
+
+    // If a fileerror occurrs then a proper error message has already been shown to the user
+//    if (fileerror()) {
+//        exit(0);
+//    }
+    debugLog("finished writing nav file\n");
+}
+
+int navigateFileExists() {
+    debugLog("Testing if navigation file exists\n");
+    string _temp[];
+    // find out if the navigation file exits
+    if (fileglob(_temp, fileLocation) > 0) {
+        debugLog("Found navigation file\n");
+        return 1;
+    } else {
+        debugLog("Not found navigation file\n");
+        return 0;
+    }
+}
+
+void onFileOpen() {
+	// Store the current file when opened in a file
+	// Read the navigation file into an array
+	string itemLibrary;
+	string itemName;
+	string itemType;
+	string _tempArray;
+
+	debugLog("New file opened\n");
+
+
+	if (navigateFileExists()) {
+	    // Navigation file exists
+	    parseNavigateFile();
+	}
+
+	sprintf(s, "current nav location: %u\n", currentNavLocation);
+    debugLog(s);
+
+    // store currently opened item name and library
+	if (symbol) {
+	    symbol(Q) {
+	        itemLibrary = Q.library;
+	        itemName = Q.name;
+	        itemType = ".sym";
+	    }
+
+	} else if (package) {
+	    package(Q) {
+            itemLibrary = Q.library;
+            itemName = Q.name;
+            itemType = ".pac";
+        }
+
+	} else if (deviceset) {
+        deviceset(Q) {
+            itemLibrary = Q.library;
+            itemName = Q.name;
+            itemType = ".dev";
+        }
+    }
+
+    string _previousItem[];
+    strsplit(_previousItem, navigateArray[currentNavLocation-1], ',');
+    currentNavLocation ++;
+
+    if (itemLibrary != _previousItem[0] && itemName != _previousItem[1] && itemType != _previousItem[2]) {
+        // Set the current nav location the the end of the array or the max nav items
+        string _currentItem;
+        sprintf(_currentItem, "%s,%s,%s", itemLibrary, itemName, itemType);
+
+        if (currentNavLocation <= maxNavItems) {
+            currentNavLocation;
+            navigateArray[currentNavLocation-1] = _currentItem;
+
+        } else {
+//            navigateArray[0] = '\0';
+            navigateArray[currentNavLocation-1] = _currentItem;
+            currentNavLocation = maxNavItems;
+            // Join the nav array into a string with '\t' separating them
+            debugLog("Max items reached, doing array shuffle\n");
+
+            // Eagle doesn't allow lowercase letters so setting "a" as the seperator is valid
+            string _navArrJoin = strjoin(navigateArray, '\t');
+            sprintf(s, "Navigation array joined: %s\n", _navArrJoin);
+            debugLog(s);
+
+            // find the index of the first occurrence of the '\t' char
+            int _firstItemOffset = strchr(_navArrJoin, '\t');
+            string _navArrSub = strsub(_navArrJoin, _firstItemOffset+1);
+
+            sprintf(s, "Navigation array substring: %s\n", _navArrSub);
+            debugLog(s);
+
+            strsplit(navigateArray, _navArrSub, '\t');
+        }
+
+        sprintf(s, "updated nav array: %s\n", strjoin(navigateArray, ':'));
+        debugLog(s);
+        writeNavigateFile();
+    }
+	exit(0);
+}
+
+void navigateBack() {
+    if (!navigateFileExists()) {
+        // Navigation file doesn't exist
+        dlgMessageBox("Could not open navigation file", "&Close");
+        exit(0);
+    }
+
+}
+
+void navigateForward() {
+    if (!navigateFileExists()) {
+        // Navigation file doesn't exist
+        dlgMessageBox("Could not open navigation file", "&Close");
+        exit(0);
+    }
+
+}
+
+//debugLog("eagle_dir: %s\n", EAGLE_DIR);
+//debugLog("eagle_path: %s\n", EAGLE_PATH);
+//debugLog("eagle_home: %s\n", EAGLE_HOME);
+
+// entry point
+if (library) {
+    clearDebugLog();
+	// parse arguments
+	if (argc > 1) {
+		if (strstr(argv[1], "-o") != -1) {
+			onFileOpen();
+
+		} else if (strstr(argv[1], "-b") != -1) {
+			navigateBack();
+
+		} else if (strstr(argv[1], "-f") != -1) {
+			navigateForward();
+
+		}
+		exit(cmd);
+	}
+
+	if (symbol) {
+		symbol(SYM) name = SYM.name;
+
+	} else if (package) {
+		package(PAC) name = PAC.name;
+		sprintf(s, "%s\n", name);
+		debugLog(s);
+	}
+
+
+
+	library(L) {
+		L.devicesets(D) {
+			if (symbol) {
+				D.gates(G) {
+					if (strstr(G.symbol.name, name) != -1 && strlen(G.symbol.name) == strlen(name)) {
+						foundDevicsets[foundDevicesetPtr] = D.name;
+						foundDevicesetPtr ++;
+					}
+				}
+			} else if (package) {
+				D.devices(DEV) {
+					if (DEV.package) {
+					// E.package.name;
+					// printf("%s\n", E.name);
+
+						if (strstr(DEV.package.name, name) != -1 && strlen(DEV.package.name) == strlen(name)) {
+							foundDevicsets[foundDevicesetPtr] = D.name;
+							foundDevicesetPtr ++;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// if (foundDevicesetPtr > 1) {
+		// found more than one device that a symbol belongs to
+	
+	int _currentRow = 0;
+	int result = dlgDialog("Navigate To") {
+		dlgVBoxLayout {
+				// dlgGroup("Device Set") {
+					dlgGridLayout {
+						dlgCell(_currentRow, 0) dlgLabel("Found DeviceSets:");
+						dlgCell(_currentRow, 1) dlgComboBox(foundDevicsets, userSelectedDeviceset);
+						_currentRow ++;
+
+		// 				dlgCell(_currentRow, 0) dlgLabel("Net Class:");
+		// 				sprintf(s, "%s", selectedSignal.class.name);
+		// 				dlgCell(_currentRow, 1) dlgLabel(s);
+		// 				_currentRow ++;
+
+		// 				dlgCell(_currentRow, 0) dlgLabel("Net Class Width:");
+		// 				sprintf(s, "%.2fmm", u2mm(_defaultWidth));
+		// 				dlgCell(_currentRow, 1) dlgLabel(s);
+		// 				sprintf(s, "%.3fin", u2inch(_defaultWidth));
+		// 				dlgCell(_currentRow, 2) dlgLabel(s);
+		// 				_currentRow ++;
+
+		// 				if (selectedWireWidth > 0) {
+		// 					dlgCell(_currentRow, 0) dlgLabel("Wire Width:");
+		// 					sprintf(s, "%.2fmm", u2mm(selectedWireWidth));
+		// 					dlgCell(_currentRow, 1) dlgLabel(s);
+		// 					sprintf(s, "%.3fin", u2inch(selectedWireWidth));
+		// 					dlgCell(_currentRow, 2) dlgLabel(s);
+		// 					_currentRow ++;
+		// 				}
+
+		// 				if (inArgv("-c")) {
+		// 					dlgCell(_currentRow, 0) dlgLabel("Net layer:");
+		// 					sprintf(s, "%u (%s)", selectedWireLayer, layerToName(selectedWireLayer));
+		// 					dlgCell(_currentRow, 1) dlgLabel(s);
+		// 					_currentRow++;
+		// 				}
+					// }
+				}
+
+		// 		// dlgStretch(0);
+		// 		// dlgGroup("Info") {
+		// 		// 	dlgGridLayout {
+		// 		// 		dlgCell(0, 0) dlgLabel("Wires in group:");
+		// 		// 		sprintf(s, "%u", foundWires);
+		// 		// 		dlgCell(0, 1) dlgLabel(s);
+
+		// 		// 		dlgCell(1, 0) dlgLabel("Vias in group:");
+		// 		// 		sprintf(s, "%u", foundVias);
+		// 		// 		dlgCell(1, 1) dlgLabel(s);
+		// 		// 	}
+		// 		// }
+
+		// 		if (inArgv("-w")) {
+		// 			dlgStretch(0);
+		// 			dlgGroup("Change Width") {
+		// 				dlgGridLayout {
+		// 					dlgCell(0, 0) dlgLabel("Width (mm):");
+		// 					dlgCell(0, 1) dlgRealEdit(userSignalWidth, 0.0, 99.0);
+		// 				}
+		// 			}
+		// 		}
+
+		// 		if (inArgv("-c")) {
+		// 			buildUsedLayersArray();
+		// 			selectedWireLayer --;
+		// 			dlgStretch(0);
+		// 			dlgGroup("Change Layer") {
+		// 				dlgGridLayout {
+		// 					dlgCell(0, 0) dlgLabel("Layer:");
+		// 					dlgCell(0, 1) dlgComboBox(layerNames, selectedWireLayer);
+		// 				}
+		// 			}
+		// 		}
+
+				dlgStretch(0);
+				dlgHBoxLayout {
+					dlgPushButton("-&Cancel") dlgReject();
+					dlgSpacing(30);
+					dlgPushButton("+&Go") dlgAccept();
+				}
+			}
+		};
+
+		if (!result) {
+			exit(0);
+		}
+	// } 
+
+		sprintf(s, "EDIT %s.dev", foundDevicsets[userSelectedDeviceset]);
+		cmd += s;
+
+
+
+
+} else {
+	dlgMessageBox("!You can only run this ULP from a library", "+&Close");
+	exit(1);
+}
+
+exit(cmd);
