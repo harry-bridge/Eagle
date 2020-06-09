@@ -28,7 +28,7 @@ int userSelectedDeviceset = 0;
 // other rows - library, package / symbol name, 
 string fileLocation = EAGLE_DIR + '/' + "library_nav.csv";
 
-int maxNavItems = 3;
+int maxNavItems = 10;
 string navigateArray[];
 int navigateArrayLen = 0;
 int currentNavLocation = 1;
@@ -127,6 +127,7 @@ void onFileOpen() {
 	if (navigateFileExists()) {
 	    // Navigation file exists
 	    parseNavigateFile();
+	    currentNavLocation ++;
 	}
 
 	sprintf(s, "current nav location: %u\n", currentNavLocation);
@@ -156,10 +157,14 @@ void onFileOpen() {
     }
 
     string _previousItem[];
-    strsplit(_previousItem, navigateArray[currentNavLocation-1], ',');
-    currentNavLocation ++;
+    int _previousItemIndex = max(0, currentNavLocation-2);
+    strsplit(_previousItem, navigateArray[_previousItemIndex], ',');
 
-    if (itemLibrary != _previousItem[0] && itemName != _previousItem[1] && itemType != _previousItem[2]) {
+    debugLog("Prevoius Item:\n");
+    sprintf(s, "%s, %s, %s\n", _previousItem[0], _previousItem[1], _previousItem[2]);
+    debugLog(s);
+
+    if (itemLibrary != _previousItem[0] || itemName != _previousItem[1] || itemType != _previousItem[2]) {
         // Set the current nav location the the end of the array or the max nav items
         string _currentItem;
         sprintf(_currentItem, "%s,%s,%s", itemLibrary, itemName, itemType);
