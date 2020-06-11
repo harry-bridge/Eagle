@@ -6,9 +6,11 @@
 # SCRIPT default-assign.scr;
 #
 
-
+# **************************************** #
+# Settings for Board editor window
+# **************************************** #
 BRD:
-# Settings for board editor window
+
 
 LAYER 101 tAssmNP;
 LAYER 102 bAssmNP;
@@ -59,12 +61,18 @@ SET SELECTTYPES ALL -AIRWIRE;
 SET VECTOR_FONT ON;
 
 # Set default layer colours
-SET color_layer 48 5;  # Set Document to mellow yellow
-SET color_layer 49 63;  #Set Reference to purple
+SET color_layer 1 4; 	# Top red
+SET color_layer 2 16;	# Layer 2 yellow
+SET color_layer 3 17;	# Layer 3 green
+SET color_layer 15 23;	# Layer 15 orange
+SET color_layer 16 1;	# Bottom blue
+
+SET color_layer 48 5;  	# Set Document to mellow yellow
+SET color_layer 49 63;  # Set Reference to purple
 SET color_layer 51 61;  # Set tDocu to yellow
-SET color_layer 52 3; # Set bDocu to lblue 
-SET color_layer 101 4; # Set tNP view layer to red
-SET color_layer 102 1; # Set bNP view layer to blue
+SET color_layer 52 3; 	# Set bDocu to lblue 
+SET color_layer 101 4; 	# Set tNP view layer to red
+SET color_layer 102 1; 	# Set bNP view layer to blue
 
 # Set default layer fill styles
 SET fill_layer 51 5; # Set tDocu to thick diag fill
@@ -89,12 +97,21 @@ Assign C+0 'WINDOW FIT';
 Assign M+9 'WINDOW LAST';
 Assign C+9 'WINDOW LAST';
 
+# Add default layers to be visible into this ULP
 RUN set_used_layers;
 
+
+
+# **************************************** #
+# Settings for Schematic editor window
+# **************************************** #
 SCH:
-# Settings for schematic editor window
+
+# Turn off warnings 
+SET Warning.PartHasNoUserDefinableValue 0;
 
 LAYER 101 AssmNP;
+LAYER 102 SchematicNotes;
 LAYER 91; # Default to being on layer 91
 
 # Get rid of the extra random layers
@@ -105,7 +122,7 @@ Change Width 0.006in;
 
 MENU '[Volumes/Sidecar/EAGLE/ulps/icons/samacsys.svg] SamacSys : Run samacsys.ulp;|\
 [Volumes/Sidecar/EAGLE/ulps/icons/frame.svg] Frame {\
-														Edit Title : Run set_title_block.ulp;|\
+														Edit Title Block : Run set_title_block.ulp;|\
 														Add Revision : Run samacsys.ulp;|\
 														---|\
 														Add Title Blocks : Run set_title_block -r;|\
@@ -115,31 +132,88 @@ MENU '[Volumes/Sidecar/EAGLE/ulps/icons/samacsys.svg] SamacSys : Run samacsys.ul
 }\
 ';
 
-DISPLAY = 'Preset_Standard' None 88 89 90 91 92 93 94 95 96 97 98 101;
+DISPLAY = 'Preset_Standard' None 88 89 90 91 92 93 94 95 96 97 98 101 102;
 
 # Set default layer colours
-SET color_layer 101 59; # Set NP view layer to red
+SET color_layer 101 59;		# Set NP view layer to red
+SET color_layer 102 9;		# Set notes layer to purple	
 
 # Set default layer fill styles
 SET fill_layer 101 1; # Set tNP view layer to solid
 
+Assign M+0 'WINDOW FIT';
+Assign C+0 'WINDOW FIT';
+Assign M+9 'WINDOW LAST';
+Assign C+9 'WINDOW LAST';
+Assign M+S+A 'ADD';
+Assign C+S+A 'ADD';
+Assign M+R 'NET';
+Assign C+R 'NET';
+Assign M+S+N 'NAME';
+Assign C+S+N 'NAME';
+Assign M+S+V 'VALUE';
+Assign C+S+V 'VALUE';
+Assign M+T 'TEXT';
+Assign C+T 'TEXT';
+Assign M+J 'JUNCTION';
+Assign C+J 'JUNCTION';
+
+# Add default layers to be visible into this ULP
 RUN set_used_layers;
 
-LBR:
-# Settings for library editor window
-;
 
+
+# **************************************** #
+# Settings for Library editor window
+# **************************************** #
+LBR:
+
+MENU '[Volumes/Sidecar/EAGLE/ulps/icons/navigate.svg] Navigate {\
+														Back : Run library_nav.ulp -b |\
+														Forward : Run library_nav.ulp -f \
+';
+
+
+
+# **************************************** #
+# Settings for Device editor window
+# **************************************** #
 DEV:
-# Settings for editing devices within a library
+
 Grid Default;
 
+MENU '[Volumes/Sidecar/EAGLE/ulps/icons/navigate.svg] Navigate {\
+														Back : Run library_nav.ulp -b |\
+														Forward : Run library_nav.ulp -f \
+';
+
+run library_nav -o;
+
+
+
+# **************************************** #
+# Settings for Symbol editor window
+# **************************************** #
 SYM:
-# Settings for editing symbols within a library
+
 Grid Default On;
 Change Width 0.010in;
 
+MENU '[Volumes/Sidecar/EAGLE/ulps/icons/navigate.svg] Navigate {\
+														Beam me up : Run library_nav.ulp |\
+														Back : Run library_nav.ulp -b |\
+														Forward : Run library_nav.ulp -f \
+';
+
+run library_nav -o;
+
+
+
+# **************************************** #
+# Settings for Package / Footprint editor window
+# **************************************** #
 PAC:
-# Settings for editing footprints within a library
+
 GRID = Metric mm 0.25 lines on alt mm 0.125;
 GRID = Inch_MM mm 1.27 lines on alt mm 0.127;
 Grid Inch_MM;
@@ -151,12 +225,16 @@ MENU '[Volumes/Sidecar/EAGLE/ulps/icons/package.svg] Package {\
 													}\
 [Volumes/Sidecar/EAGLE/ulps/icons/utilities.svg] Utilities {\
 														tDocu Gen : Run tdocu_gen.ulp;|\
-}\
+													}\
+[Volumes/Sidecar/EAGLE/ulps/icons/navigate.svg] Navigate {\
+														Beam me up : Run library_nav.ulp |\
+														Back : Run library_nav.ulp -b |\
+														Forward : Run library_nav.ulp -f \
 ';
 
 # Get rid of the extra internal layers
 # Set used_Layers 1 16 17 20 21 22 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52; 
-RUN set_used_layers;
+# RUN set_used_layers;
 
 DISPLAY = 'Preset_Top' None 1 17 20 21 23 25 29 39 41 43 49 51;
 DISPLAY = 'Preset_Bottom' None 16 17 20 22 24 26 30 40 42 43 49 52;
@@ -175,3 +253,5 @@ SET fill_layer 51 5; # Set tDocu to thick diag fill
 SET fill_layer 52 5; # Set bDocu to thick diag fill
 # SET fill_layer 101 4; # Set tNP view layer to thick diag fill
 # SET fill_layer 102 4; # Set bNP view layer to thick diag fill
+
+run library_nav -o;
