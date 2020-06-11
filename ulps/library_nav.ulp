@@ -33,13 +33,16 @@ string navigateArray[];
 int navigateArrayLen = 0;
 int currentNavLocation = 1;
 
-string currentItemLibrary;
-string currentItemName;
-string currentItemType;
+// Track if we are on the library contents page
+int inLibraryContentsPage = 0;
+string currentItemLibrary = "";
+string currentItemName = "";
+string currentItemType = "";
 
 void clearDebugLog() {
-    output(debugLocation, "wt") {
-    }
+	// if (debug) {
+	//     output(debugLocation, "wt") {}
+	// }
 }
 
 void debugLog(string text) {
@@ -53,7 +56,7 @@ void debugLog(string text) {
 void parseNavigateFile() {
 	string _lineSplit[];
 	string _tempArray[];
-	debugLog("Parsing navigation file\n");
+	debugLog("== Parsing navigation file ==\n");
 
 	navigateArrayLen = fileread(_tempArray, fileLocation);
     
@@ -86,7 +89,7 @@ void parseNavigateFile() {
 }
 
 void writeNavigateFile() {
-    debugLog("write nav file\n");
+    debugLog("== Writing nav file ==\n");
 //    sprintf(s, "Nav file location: %s\n", fileLocation);
 //    debugLog(s);
     // reset file errors
@@ -122,43 +125,55 @@ int navigateFileExists() {
 }
 
 void getCurrentItem() {
+	debugLog("== Get Current Item ==\n");
 	// store currently opened item name and library
+	library(L) {
+		currentItemLibrary = L.name;
+	}
+
 	if (symbol) {
+		debugLog("In symbol\n");
 	    symbol(Q) {
-	        currentItemLibrary = Q.library;
 	        currentItemName = Q.name;
 	        currentItemType = ".sym";
 	    }
 
 	} else if (package) {
+		debugLog("In package\n");
 	    package(Q) {
-            currentItemLibrary = Q.library;
             currentItemName = Q.name;
             currentItemType = ".pac";
         }
 
 	} else if (deviceset) {
         deviceset(Q) {
-            currentItemLibrary = Q.library;
+        	debugLog("In deviceset\n");
             currentItemName = Q.name;
             currentItemType = ".dev";
         }
+    } else {
+    	debugLog("In library contents\n");
+    	// We are in the main library contents page so set the current item to be blank
+    	inLibraryContentsPage = 1;
+    	
     }
 }
 
 // TODO check if the opened item is the same as the current nav location item
 
 void onFileOpen() {
+	debugLog("== File Opened ==\n");
 	// Store the current file when opened in a file
 	// Read the navigation file into an array
 	string _tempArray;
+	int _endNavLocation = 0;
 
 	debugLog("New file opened\n");
 
 	if (navigateFileExists()) {
 	    // Navigation file exists
 	    parseNavigateFile();
-	    currentNavLocation = navigateArrayLen + 1;
+	    _endNavLocation = navigateArrayLen + 1;
 	}
 
 	sprintf(s, "current nav location: %u\n", currentNavLocation);
@@ -167,54 +182,71 @@ void onFileOpen() {
     // get details about the current open item
 	getCurrentItem();
 
+	// get the last item that is in the nav history csv table
     string _previousItem[];
     int _previousItemIndex = max(0, navigateArrayLen - 1);
     strsplit(_previousItem, navigateArray[_previousItemIndex], ',');
+
+    // get the item that is curretly at the currentNavLocation index
+    string _currentNavIndexItem[];
+    int _currentNavIndexItemIndex = max(0, currentNavLocation - 1);
+    strsplit(_currentNavIndexItem, navigateArray[_currentNavIndexItemIndex], ',');
 
     debugLog("Prevoius Item:\n");
     sprintf(s, "%s, %s, %s\n", _previousItem[0], _previousItem[1], _previousItem[2]);
     debugLog(s);
 
-    if (currentItemLibrary != _previousItem[0] || currentItemName != _previousItem[1] || currentItemType != _previousItem[2]) {
-        // Set the current nav location the the end of the array or the max nav items
-        string _currentItem;
-        sprintf(_currentItem, "%s,%s,%s", currentItemLibrary, currentItemName, currentItemType);
+    // if the currently open item is the same as the item at the currentNavLocation index then don't do anything
+    // we have probably got here from going forward or back in time
 
-        if (currentNavLocation <= maxNavItems) {
-            currentNavLocation;
-            navigateArray[currentNavLocation-1] = _currentItem;
+    if (currentItemLibrary == _currentNavIndexItem[0] && currentItemName == _currentNavIndexItem[1] && currentItemType == _currentNavIndexItem[2]) {
+    	// current item at the currentNavIndex is the same as the currently open item so don't do anything here
+    } else {
+	    if (currentItemLibrary != _previousItem[0] || currentItemName != _previousItem[1] || currentItemType != _previousItem[2]) {
+	        // Set the current nav location the the end of the array
+	        currentNavLocation = _endNavLocation;
+	        string _currentItem;
+	        sprintf(_currentItem, "%s,%s,%s", currentItemLibrary, currentItemName, currentItemType);
 
-        } else {
-//            navigateArray[0] = '\0';
-            navigateArray[currentNavLocation-1] = _currentItem;
-            currentNavLocation = maxNavItems;
-            // Join the nav array into a string with '\t' separating them
-            debugLog("Max items reached, doing array shuffle\n");
+	        if (currentNavLocation <= maxNavItems) {
+	            currentNavLocation;
+	            navigateArray[currentNavLocation-1] = _currentItem;
 
-            // Eagle doesn't allow lowercase letters so setting "a" as the seperator is valid
-            string _navArrJoin = strjoin(navigateArray, '\t');
-            sprintf(s, "Navigation array joined: %s\n", _navArrJoin);
-            debugLog(s);
+	        } else {
+	//            navigateArray[0] = '\0';
+	            navigateArray[currentNavLocation-1] = _currentItem;
+	            currentNavLocation = maxNavItems;
+	            // Join the nav array into a string with '\t' separating them
+	            debugLog("Max items reached, doing array shuffle\n");
 
-            // find the index of the first occurrence of the '\t' char
-            int _firstItemOffset = strchr(_navArrJoin, '\t');
-            string _navArrSub = strsub(_navArrJoin, _firstItemOffset+1);
+	            // Eagle doesn't allow lowercase letters so setting "a" as the seperator is valid
+	            string _navArrJoin = strjoin(navigateArray, '\t');
+	            sprintf(s, "Navigation array joined: %s\n", _navArrJoin);
+	            debugLog(s);
 
-            sprintf(s, "Navigation array substring: %s\n", _navArrSub);
-            debugLog(s);
+	            // find the index of the first occurrence of the '\t' char
+	            int _firstItemOffset = strchr(_navArrJoin, '\t');
+	            string _navArrSub = strsub(_navArrJoin, _firstItemOffset+1);
 
-            strsplit(navigateArray, _navArrSub, '\t');
-        }
+	            sprintf(s, "Navigation array substring: %s\n", _navArrSub);
+	            debugLog(s);
 
-        sprintf(s, "updated nav array: %s\n", strjoin(navigateArray, ':'));
-        debugLog(s);
-        writeNavigateFile();
-    }
-    // exit here rather than exit(cmd) later on
-	exit(0);
+	            strsplit(navigateArray, _navArrSub, '\t');
+	        }
+
+	        sprintf(s, "updated nav array: %s\n", strjoin(navigateArray, ':'));
+	        debugLog(s);
+	        writeNavigateFile();
+	    }
+	}
 }
 
+
+// TODO add error messages if the user tries to navigate beyond the maximum limits of the array
+// TODO if item doesnt exist to navigate to then show an error asking user if they want to delete that entry
 void navigateForwardBack(int direction) {
+	sprintf(s, "== Navigating %s ==\n", direction ? "Forward" : "Back");
+	debugLog(s);
 	// direction 0 for back, 1 for forward
     if (!navigateFileExists()) {
         // Navigation file doesn't exist
@@ -222,74 +254,105 @@ void navigateForwardBack(int direction) {
         exit(0);
     } 
 
+    // Read the navigation file
     parseNavigateFile();
+    // get details about the current open item
+    getCurrentItem();
+
+    if (direction == 0) {
+    	if (currentNavLocation - 1 < 0) {
+    		dlgMessageBox("!Cannot go any further backwards", "&Close");
+    		exit(0);
+    	} else {
+    		currentNavLocation --;
+    	}
+    	
+    } else if (direction == 1) {
+    	if (currentNavLocation + 1 > navigateArrayLen) {
+    		dlgMessageBox("!Cannot go any further forwards", "&Close");
+    		exit(0);
+    	} else {
+    		currentNavLocation ++;
+    	}
+
+    }
 
     string _navigateItem[];
     int _navigateItemIndex;
 
+    // At this point we've already taken one off the current nav location
     if (direction == 0) {
-    	_navigateItemIndex = max(0, currentNavLocation - 2);
+    	// Going back
+    	if (inLibraryContentsPage == 0) {
+    		_navigateItemIndex = max(0, currentNavLocation - 1);
+    	} else {
+    		_navigateItemIndex = max(0, currentNavLocation);
+    		currentNavLocation ++;
+    	}
+    	
     } else if (direction == 1) {
-		_navigateItemIndex = min(navigateArrayLen, currentNavLocation + 1);
+    	// Going forward
+    	if (inLibraryContentsPage == 0) {
+			_navigateItemIndex = min(navigateArrayLen, currentNavLocation);
+    	} else {
+    		_navigateItemIndex = max(0, currentNavLocation - 1);
+    	}
+		
     }
+    
+    sprintf(s, "Navigate item index: %u\n", _navigateItemIndex);
+    debugLog(s);
     
     strsplit(_navigateItem, navigateArray[_navigateItemIndex], ',');
 
-    // get details about the current open item
-    getCurrentItem();
+    sprintf(s, "Current library: %s, Navigate to library: %s\n", currentItemLibrary, _navigateItem[0]);
+    debugLog(s);
+
 
     if (currentItemLibrary != _navigateItem[0]) {
     	// We first need to switch libraries
-    	sprintf(s, "OPEN %s;\n", _navigateItem[0]);
+    	debugLog("Moving libraries\n");
+    	sprintf(s, "OPEN \'%s.lbr\';\n", _navigateItem[0]);
     	cmd += s;
     }
 
     sprintf(s, "EDIT %s%s;\n", _navigateItem[1], _navigateItem[2]);
     cmd += s;
 
-    if (direction == 0) {
-    	currentNavLocation --;
-    } else if (direction == 1) {
-    	currentNavLocation ++;
-    }
-
+    debugLog("Opening item: ");
+    debugLog(s);
 
     // write current nav location to the nav file
     writeNavigateFile();
 
 }
 
-void navigateForward() {
-    if (!navigateFileExists()) {
-        // Navigation file doesn't exist
-        dlgMessageBox("Could not open navigation file", "&Close");
-        exit(0);
-    }
-
-}
-
-//debugLog("eagle_dir: %s\n", EAGLE_DIR);
-//debugLog("eagle_path: %s\n", EAGLE_PATH);
-//debugLog("eagle_home: %s\n", EAGLE_HOME);
 
 // entry point
 if (library) {
+
     clearDebugLog();
 	// parse arguments
 	if (argc > 1) {
-		if (strstr(argv[1], "-o") != -1) {
-			onFileOpen();
-
-		} else if (strstr(argv[1], "-b") != -1) {
+		if (strstr(argv[1], "-b") != -1) {
 			// navigate back
 			navigateForwardBack(0);
+			// Kiss it goodbye
+			exit(cmd);
 
 		} else if (strstr(argv[1], "-f") != -1) {
 			// navigate forward
 			navigateForwardBack(1);
+			// Kiss it goodbye
+			exit(cmd);
+
+		} else if (strstr(argv[1], "-o") != -1) {
+			// debug = 0;
+			onFileOpen();
+			exit(0);
 
 		}
-		exit(cmd);
+		
 	}
 
 	if (symbol) {
@@ -429,5 +492,3 @@ if (library) {
 	dlgMessageBox("!You can only run this ULP from a library", "+&Close");
 	exit(1);
 }
-
-exit(cmd);
