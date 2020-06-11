@@ -261,7 +261,7 @@ void navigateForwardBack(int direction) {
 
     if (direction == 0) {
     	if (currentNavLocation - 1 < 0) {
-    		dlgMessageBox("!Cannot go any further backwards", "&Close");
+    		dlgMessageBox("!Can\'t go any further backwards", "&Close");
     		exit(0);
     	} else {
     		currentNavLocation --;
@@ -269,7 +269,7 @@ void navigateForwardBack(int direction) {
     	
     } else if (direction == 1) {
     	if (currentNavLocation + 1 > navigateArrayLen) {
-    		dlgMessageBox("!Cannot go any further forwards", "&Close");
+    		dlgMessageBox("!Can\'t go any further forwards", "&Close");
     		exit(0);
     	} else {
     		currentNavLocation ++;
@@ -293,13 +293,13 @@ void navigateForwardBack(int direction) {
     } else if (direction == 1) {
     	// Going forward
     	if (inLibraryContentsPage == 0) {
-			_navigateItemIndex = min(navigateArrayLen, currentNavLocation);
+			_navigateItemIndex = min(navigateArrayLen - 1, currentNavLocation);
     	} else {
-    		_navigateItemIndex = max(0, currentNavLocation - 1);
+    		_navigateItemIndex = min(navigateArrayLen, currentNavLocation - 1);
     	}
 		
     }
-    
+
     sprintf(s, "Navigate item index: %u\n", _navigateItemIndex);
     debugLog(s);
     
