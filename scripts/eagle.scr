@@ -6,6 +6,8 @@
 # SCRIPT default-assign.scr;
 #
 
+SET Interface.UseCtrlForPanning 0;
+
 # **************************************** #
 # Settings for Board editor window
 # **************************************** #
@@ -96,6 +98,8 @@ Assign M+0 'WINDOW FIT';
 Assign C+0 'WINDOW FIT';
 Assign M+9 'WINDOW LAST';
 Assign C+9 'WINDOW LAST';
+Assign M+T 'TEXT';
+Assign C+T 'TEXT';
 
 # Add default layers to be visible into this ULP
 RUN set_used_layers;
@@ -205,6 +209,11 @@ MENU '[Volumes/Sidecar/EAGLE/ulps/icons/navigate.svg] Navigate {\
 														Forward : Run library_nav.ulp -f \
 ';
 
+Assign M+0 'WINDOW FIT';
+Assign C+0 'WINDOW FIT';
+Assign M+9 'WINDOW LAST';
+Assign C+9 'WINDOW LAST';
+
 run library_nav -o;
 
 
@@ -222,6 +231,7 @@ MENU '[Volumes/Sidecar/EAGLE/ulps/icons/package.svg] Package {\
 														Gen SMD CAE : Run genpkg_cae.ulp;|\
 														Gen QFP : Run genpkg_qfp.ulp;|\
 														Gen SOIC : Run genpkg_soic.ulp;|\
+														Gen Hole : Run genpkg_hole.ulp;|\
 													}\
 [Volumes/Sidecar/EAGLE/ulps/icons/utilities.svg] Utilities {\
 														tDocu Gen : Run tdocu_gen.ulp;|\
@@ -231,6 +241,11 @@ MENU '[Volumes/Sidecar/EAGLE/ulps/icons/package.svg] Package {\
 														Back : Run library_nav.ulp -b |\
 														Forward : Run library_nav.ulp -f \
 ';
+
+Assign M+0 'WINDOW FIT';
+Assign C+0 'WINDOW FIT';
+Assign M+9 'WINDOW LAST';
+Assign C+9 'WINDOW LAST';
 
 # Get rid of the extra internal layers
 # Set used_Layers 1 16 17 20 21 22 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52; 
