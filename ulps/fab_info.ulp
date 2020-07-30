@@ -57,6 +57,9 @@ int numCopperLayers = 0;
 string IgnoreValueStrings[] = {"(NP)", "FID"};
 int numIgnoreMatches = 2;
 
+// Min extra size for smt paste stencil in mm
+int extraStencilBorder = 60;
+
 string s;
 string message = ""; 
 string cmd = "";
@@ -119,9 +122,17 @@ if (board) {
 					}
 			}
 
-			if (ignore == -1) {
-				// If part is to be placed
+			E.attributes(A) {
+				if (A.name == "PLACE") {
+					if (A.value == "FALSE") {
+						ignore = 1;
+					}
+				}
+			}
 
+			if (ignore == -1) {
+
+				// If part is to be placed
 				int unique = strstr(componentsFound, E.value);
 				if (unique == -1) {
 					// part hasn't been found yet
@@ -337,10 +348,14 @@ if (board) {
 					dlgCell(3, 1)  dlgLabel(s);
 					sprintf(s, "%.3fin", u2inch(originY));
 					dlgCell(3, 2)  dlgLabel(s);
+
+					dlgCell(4, 0) dlgLabel("Min Stencil Size (WxH):");
+					sprintf(s, "%.2fmm x %.2fmm", u2mm(boardWidth) + extraStencilBorder, u2mm(boardHeight) + extraStencilBorder);
+					dlgCell(4, 1) dlgLabel(s);
 				}
 			}
 
-			dlgStretch(0);
+			dlgStretch(0);	
 			dlgSpacing(10);
 			dlgPushButton("+Done") dlgAccept();
 		}
