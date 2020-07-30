@@ -1,0 +1,260 @@
+// gen_pth_slot.ulp
+#usage "This tool generates a slot on a long pad in a package."
+        "<br>"
+        "It also adds cutout polygons on inner layers of the PCB to prevent shorting internal layers together."
+        "<br>"
+        "<br>"
+        "Run this tool after first selecting the long pad that you want to turn into a slot. "
+        "Currently this tool does not work with pads at an angle."
+
+#include "utils.h"
+
+string cmd = "";
+string s = "";
+
+// What layers to put cutout polygons on
+int keepoutLayers[] = {2, 15};
+// how many items are in the above array
+int numKeepoutLayers = 2; 
+
+int foundPad = 0;
+
+real userSlotLength = 0.0;
+real userSlotWidth = 0.0;
+
+int userGenKeepoutLayers = 1;
+int userGenSlot = 1;
+
+real padAngle = 0;
+int padXMax = 0;
+int padXMin = 0;
+int padYMax = 0;
+int padYMin = 0;
+
+real keepoutPolygonWidth = 0.2;
+int polygonRadius = 0;
+int padWidth = 0;
+int padLength = 0;
+
+// entry point
+if (package) {
+    cmd += "GRID mm;\n";
+    package(P) {
+        P.contacts(C) {
+            if (C.pad && ingroup(C)) {
+                if (C.pad.shape[1] != PAD_SHAPE_LONG) {
+                    dlgMessageBox("!Only long pads can be made into slots.", "+&Close");
+                    exit(1);
+                }
+                foundPad = 1;
+                padAngle = C.pad.angle;
+
+                if (padAngle == 0 || padAngle == 180) {
+                    padYMax = C.pad.y + (C.pad.diameter[LAYER_TOP] / 2);
+                    padYMin = C.pad.y - (C.pad.diameter[LAYER_TOP] / 2);
+                    padWidth = padYMax - padYMin;
+                    polygonRadius = padWidth / 2;
+
+                    padXMax = C.pad.x + (padWidth * (C.pad.elongation / 100));
+                    padXMin = C.pad.x - (padWidth * (C.pad.elongation / 100));
+                    padLength = padXMax - padXMin;
+
+                } else if (padAngle == 90 || padAngle == 270) {
+                    padXMax = C.pad.x + (C.pad.diameter[LAYER_TOP] / 2);
+                    padXMin = C.pad.x - (C.pad.diameter[LAYER_TOP] / 2);
+                    padWidth = padXMax - padXMin;
+                    polygonRadius = padWidth / 2;
+                    
+                    padYMax = C.pad.y + (padWidth * (C.pad.elongation / 100));
+                    padYMin = C.pad.y - (padWidth * (C.pad.elongation / 100));
+
+                    padLength = padYMax - padYMin;
+
+                } else {
+                    sprintf(s, "!This tool can\'t currently be used on angled pads. (%.2f°)", padAngle);
+                    dlgMessageBox(s, "+&Close");
+                    exit(1);
+                }
+
+                int result = dlgDialog("Slot Generator") {
+                    dlgVBoxLayout {
+                        dlgStretch(0);
+                        dlgGroup("Slot") {
+                            dlgGridLayout {
+                                dlgCell(0, 0) dlgLabel("Width (mm)");
+                                dlgCell(0, 1) dlgRealEdit(userSlotWidth, 0.0, u2mm(padWidth));
+                                dlgCell(1, 0) dlgLabel("Length (mm)");
+                                dlgCell(1, 1) dlgRealEdit(userSlotLength, 0.0, u2mm(padLength));
+                                dlgCell(2, 0) dlgCheckBox("Generate slot on pad", userGenSlot);
+
+                            }
+                        }
+
+                        dlgStretch(0);
+
+                        dlgGroup("Keepout") {
+                            dlgGridLayout {
+                                dlgCell(0, 0) dlgLabel("Keepout width (mm)");
+                                dlgCell(0, 1) dlgRealEdit(keepoutPolygonWidth, 0.0, 100.0);
+                                dlgCell(1, 0) dlgCheckBox("Generate slot keepout polygons", userGenKeepoutLayers);
+                            }
+                        }
+
+                        dlgStretch(0);
+
+                        dlgHBoxLayout {
+                            dlgPushButton("-&Cancel") dlgReject();
+                            dlgSpacing(30);
+                            dlgPushButton("+&Generate") dlgAccept();
+                        }
+                    }
+                };
+
+                if (result == 0) {
+                    exit (0);
+                }
+
+                if (userGenSlot) {
+                    if (userSlotLength == 0 || userSlotWidth == 0) {
+                        dlgMessageBox("!Slot width and length must be greater than 0.", "+&Close");
+                        exit(1);
+                    }
+
+                    cmd += "Layer 46;\n";
+                    real slotRadius = userSlotWidth / 2;
+                    real millLineWidth = 0.1;
+
+                    int padX = C.pad.x;
+                    int padY = C.pad.y;
+
+                    if (padAngle == 0 || padAngle == 180) {
+                        int slotXMin = padX - mm2u(userSlotLength / 2);
+                        int slotXmax = padX + mm2u(userSlotLength / 2);
+                        int slotYMin = padY - mm2u(userSlotWidth / 2);
+                        int slotYMax = padY + mm2u(userSlotWidth / 2);
+                        // start at lower left corner
+                        sprintf(s, "LINE %f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f);\n",
+                            millLineWidth,
+                            u2mm(slotXMin) + slotRadius, u2mm(slotYMin),
+                            u2mm(slotXmax) - slotRadius, u2mm(slotYMin),
+
+                            slotRadius,
+                            u2mm(slotXmax), u2mm(slotYMin) + slotRadius,
+                            slotRadius,
+
+                            u2mm(slotXmax) - slotRadius, u2mm(slotYMax),
+                            u2mm(slotXMin) + slotRadius, u2mm(slotYMax),
+
+                            slotRadius,
+                            u2mm(slotXMin), u2mm(slotYMax) - slotRadius,
+                            slotRadius,
+
+                            u2mm(slotXMin) + slotRadius, u2mm(slotYMin)
+
+                        );
+
+                    } else if (padAngle == 90 || padAngle == 270) {
+                        int slotXMin = padX - mm2u(userSlotWidth / 2);
+                        int slotXmax = padX + mm2u(userSlotWidth / 2);
+                        int slotYMin = padY - mm2u(userSlotLength / 2);
+                        int slotYMax = padY + mm2u(userSlotLength / 2);
+
+                        // start at lower right corner
+                        sprintf(s, "LINE %f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f);\n",
+                            millLineWidth,
+                            u2mm(slotXmax), u2mm(slotYMin) + slotRadius,
+                            u2mm(slotXmax), u2mm(slotYMax) - slotRadius,
+
+                            slotRadius,
+                            u2mm(slotXmax) - slotRadius, u2mm(slotYMax),
+                            slotRadius,
+                            
+                            u2mm(slotXMin), u2mm(slotYMax) - slotRadius,
+                            u2mm(slotXMin), u2mm(slotYMin) + slotRadius,
+
+                            slotRadius,
+                            u2mm(slotXMin) + slotRadius, u2mm(slotYMin),
+                            slotRadius,
+
+                            u2mm(slotXmax), u2mm(slotYMin) + slotRadius
+
+                        );
+                    }
+                    cmd += s;
+                }
+
+                if (userGenKeepoutLayers) {
+                    cmd += "Change pour cutout;\n";
+
+                    sprintf(s, "Change width %f;\n", keepoutPolygonWidth);
+                    cmd += s;
+
+                    padXMax += mm2u(keepoutPolygonWidth / 2);
+                    padXMin -= mm2u(keepoutPolygonWidth / 2);
+                    padYMax += mm2u(keepoutPolygonWidth / 2);
+                    padYMin -= mm2u(keepoutPolygonWidth / 2);
+                    polygonRadius = min((padXMax - padXMin) / 2, (padYMax - padYMin) / 2);
+
+                    for (int i = 0; i < numKeepoutLayers; i ++) {
+                        sprintf(s, "LAYER %u;\n", keepoutLayers[i]);
+                        cmd += s;
+
+                        if (padAngle == 0 || padAngle == 180) {
+                            // start at lower left corner
+                            sprintf(s, "POLYGON (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f);\n", 
+                                u2mm(padXMin + polygonRadius), u2mm(padYMin),
+                                u2mm(padXMax - polygonRadius), u2mm(padYMin),
+
+                                u2mm(polygonRadius),
+                                u2mm(padXMax), u2mm(padYMin + polygonRadius),
+                                u2mm(polygonRadius),
+                                
+                                u2mm(padXMax - polygonRadius), u2mm(padYMax),
+                                u2mm(padXMin + polygonRadius), u2mm(padYMax),
+
+                                u2mm(polygonRadius),
+                                u2mm(padXMin), u2mm(padYMax - polygonRadius),
+                                u2mm(polygonRadius),
+
+                                u2mm(padXMin + polygonRadius), u2mm(padYMin)
+                            );
+                            
+                        } else if (padAngle == 90 || padAngle == 270) {
+                            // start at lower right corner
+                            sprintf(s, "POLYGON (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f) (%f %f) @+%f (%f %f) @+%f (%f %f);\n", 
+                                u2mm(padXMax), u2mm(padYMin + polygonRadius),
+                                u2mm(padXMax), u2mm(padYMax - polygonRadius),
+
+                                u2mm(polygonRadius),
+                                u2mm(padXMax - polygonRadius), u2mm(padYMax),
+                                u2mm(polygonRadius),
+
+                                u2mm(padXMin), u2mm(padYMax - polygonRadius),
+                                u2mm(padXMin), u2mm(padYMin + polygonRadius),
+
+                                u2mm(polygonRadius),
+                                u2mm(padXMin + polygonRadius), u2mm(padYMin),
+                                u2mm(polygonRadius),
+
+                                u2mm(padXMax), u2mm(padYMin + polygonRadius)
+                            );
+                        }
+
+                        cmd += s;
+                    }
+
+                    // remove the current pad from the selection at the end of the process
+                    clrgroup(C);
+                }
+            } 
+        }
+    }
+
+    if (!foundPad) {
+        dlgMessageBox("!Please select a pad before running this tool.", "+&Close");
+        exit(1);
+    }
+    cmd += "Layer 1;\n";
+    cmd += "GRID last;\n";
+    exit(cmd);
+}
