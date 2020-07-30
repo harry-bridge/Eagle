@@ -1,6 +1,8 @@
 // highlight_np.ulp
 // puts a rect around each component that is set to be np on a board
 
+#include "utils.h"
+
 #usage "<b>Highlights all NP components on schematics and boards</b>\n"
        "<p>"
        "Usage: RUN highlight_np from either a schematic or a board\n"
@@ -42,13 +44,15 @@ void resetMaxBounds() {
 	ymin = xmin;
 }
 
-void deleteLayerContents(int Layer) {
-	sprintf(s, "DISPLAY None %u;\n", Layer);
-	cmd += s;
-	cmd += "GROUP all;\n";
-	cmd += "DELETE (>0 0);\n";
-	cmd += "DISPLAY last;\n";
-}
+// void deleteLayerContents(int Layer) {
+// 	// need to reset the selection filter to be able to delete layer contents
+// 	cmd += "SET selectlayers all;\n";
+// 	sprintf(s, "DISPLAY None %u;\n", Layer);
+// 	cmd += s;
+// 	cmd += "GROUP all;\n";
+// 	cmd += "DELETE (>0 0);\n";
+// 	cmd += "DISPLAY last;\n";
+// }
 
 void normaliseDxDy(UL_SMD smd) {
 	// normalises the dx, dy of an smd to take into account rotation of the pad
@@ -144,7 +148,7 @@ void makeScematicNp() {
 			sprintf(s, "EDIT .s%u;\n", S.number);
 			cmd += s;
 
-			deleteLayerContents(101);
+			cmd += deleteLayerContents(101);
 
 			S.parts(P) {
 				// printf("Part: %s\n", P.name);
@@ -243,14 +247,14 @@ void makeScematicNp() {
 
 void buildBoardCommand() {
 	// Delete everything on layer 101
-	deleteLayerContents(101);
 	cmd += "LAYER 101;\n";
+	cmd += deleteLayerContents(101);
 	// Highlight np on layer 1
 	makeBoardNp(1);
 
 	// Delete everything on layer 102
-	deleteLayerContents(102);
 	cmd += "LAYER 102;\n";
+	cmd += deleteLayerContents(102);
 	// Highlight np on layer 2
 	makeBoardNp(16);
 
