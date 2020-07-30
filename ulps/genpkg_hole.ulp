@@ -1,0 +1,178 @@
+// gen_package_hole.ulp
+// generates a mount hole package with the appropriate keepout layers as well
+
+#usage 	"Generates a hole with a certain diameter and keepout ratio<br>"
+		"Keepout ratio is the ratio of extra keepout diameter to hole diameter, i.e:"
+		"If you have a 2mm hole then with a 50%% keepout then the finished diameter will be 50%% larger, so 3mm"
+
+
+int debug = 0;
+
+string cmd = "";
+string s = "";
+
+real tplaceWidth = 0.15;
+
+real userHoleDia = 0;
+// by default use 50% of the hole dia as the keepout width
+real userKeepoutPercentage = 60;
+int userGenTplace = 1;
+int userGenKeepout = 1;
+
+// int holeTypeHole = 0;
+// int holeTypePad = 1;
+int userHoleType = 0;
+int userPadShape = 0;
+
+enum { holeTypeHole, holeTypePad };
+enum { padShapeRound, padShapeSquare };
+
+real minTextSize = 0.7;
+
+
+void genHoleCommand() {
+	if (userHoleDia == 0) {
+		dlgMessageBox("!Hole diameter must be greater than 0", "&Close");
+		exit(1);
+	}
+
+	cmd += "GRID MM;\n";
+
+	real _keepoutWidth = (real(userHoleDia) * (userKeepoutPercentage / 100)) / 2;
+	real _keepoutRadius = (real(userHoleDia) / 2) + (_keepoutWidth / 2);
+	real _tplaceRadius = 0;
+
+	if (debug) {
+		printf("Hole diameter: %f\n", real(userHoleDia));
+		printf("Keepout width: %f\n", _keepoutWidth);
+		printf("Keepout radius: %f\n", _keepoutRadius);
+	}
+
+	if (userHoleType == holeTypeHole) {
+		_tplaceRadius = (real(userHoleDia) / 2) + (_keepoutWidth * 0.8);
+
+		sprintf(s, "HOLE %f (0 0);\n", real(userHoleDia));
+		cmd += s;
+
+		// Add keepout layers
+		if (userGenKeepout) {
+
+			// tKeepout, bKeepout, tRestrict, bRestrict, vRestrict
+			int _keepoutLayers[] = {39, 40, 41, 42, 43};
+
+			for (int i = 0; i < 5; i++) {
+				sprintf(s, "LAYER %u;\n", _keepoutLayers[i]);
+				cmd += s;
+
+				sprintf(s, "CIRCLE %f (0 0) (0 %f);\n", _keepoutWidth, _keepoutRadius);
+				cmd += s;
+
+			}
+		}
+
+		// Add hole size in middle of hole
+		cmd += "LAYER 51;\n";
+		cmd += "CHANGE ALIGN CENTER;\n";
+		real textSize = max((real(userHoleDia) / 3.5), minTextSize);
+		sprintf(s, "CHANGE SIZE %f (0 0);\n", textSize);
+		cmd += s;
+
+		sprintf(s, "TEXT %.2f (0 0);\n", real(userHoleDia));
+		cmd += s;
+
+		sprintf(s, "DESCRIPTION 'Mount hole dia %.2fmm with %.2f%% extra keepout.<br>Total diamater (hole + keepout) = %.2fmm';\n", 
+			real(userHoleDia),
+			real(userKeepoutPercentage),
+			real((_keepoutRadius + (_keepoutWidth / 2)) * 2)
+			);
+		cmd += s;
+
+	} else if (userHoleType == holeTypePad) {
+		_tplaceRadius = (real(userHoleDia) + (_keepoutWidth * 2) + 0.5) / 2;
+
+		sprintf(s, "CHANGE drill %f;\n", real(userHoleDia));
+		cmd += s;
+
+		cmd += "CHANGE SHAPE ROUND;\n";
+
+		sprintf(s, "PAD 'H%.2f' %f (0 0);\n", real(userHoleDia), real(userHoleDia) + (_keepoutWidth * 2));
+
+		cmd += s;
+
+		sprintf(s, "DESCRIPTION 'Mount pad dia %.2fmm.<br>Total diamater (hole + pad) = %.2fmm';\n", 
+			real(userHoleDia),
+			real(userHoleDia) + (_keepoutWidth * 2)
+			);
+		cmd += s;
+		}
+
+	if (userGenTplace) {
+		cmd += "LAYER 21;\n";
+
+		sprintf(s, "CIRCLE %f (0 0) (%f 0);\n", tplaceWidth, _tplaceRadius);
+		cmd += s;
+	}
+
+	
+
+	cmd += "LAYER 1;\n";
+	cmd += "WINDOW FIT;\n";
+	cmd += "GRID LAST;\n";
+}
+
+if (package) {
+
+	int _currentRow = 0;
+
+	int result = dlgDialog("Generate Hole") {
+		dlgVBoxLayout {
+				dlgGroup("Dimensions") {
+			
+					dlgGridLayout {
+						dlgCell(_currentRow, 0) dlgLabel("Hole dia:");
+						dlgCell(_currentRow, 1) dlgRealEdit(userHoleDia, 0, REAL_MAX);
+						dlgCell(_currentRow, 2) dlgLabel("mm");
+						_currentRow ++;
+
+						dlgCell(_currentRow, 0) dlgLabel("Keepout percentage:");
+						dlgCell(_currentRow, 1) dlgRealEdit(userKeepoutPercentage, 0, REAL_MAX);
+						dlgCell(_currentRow, 2) dlgLabel("%");
+						_currentRow ++;
+
+					}
+				}
+
+				dlgStretch(0);
+				dlgGroup("Options") {
+					dlgGridLayout {
+						dlgCell(0, 0) dlgCheckBox("Generate tPlace layer", userGenTplace);
+						dlgCell(1, 0) dlgCheckBox("Generate keepout layers", userGenKeepout);
+
+						dlgCell(0, 1) dlgRadioButton("Mount Hole", userHoleType);
+						dlgCell(1, 1) dlgRadioButton("Mount Pad", userHoleType);
+						
+					}
+				}
+
+				dlgStretch(0);
+
+					dlgHBoxLayout {
+						dlgPushButton("-&Cancel") dlgReject();
+						dlgSpacing(30);
+						dlgPushButton("+&Go") dlgAccept();
+					}
+
+			}
+		};
+
+		if (!result) {
+			exit(0);
+		}
+
+		genHoleCommand();
+		exit(cmd);
+
+} else {
+	dlgMessageBox("!You can only run this ULP from the package editor", "+&Close");
+	exit(1);
+}
